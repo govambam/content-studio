@@ -86,7 +86,13 @@ context.delete("/context/:id", async (c) => {
   }
 
   // Delete from storage
-  await supabase.storage.from("context-files").remove([file.file_path]);
+  const { error: storageError } = await supabase.storage
+    .from("context-files")
+    .remove([file.file_path]);
+
+  if (storageError) {
+    return c.json({ data: null, error: storageError.message } satisfies ApiResponse<null>, 500);
+  }
 
   // Delete the database record
   const { error } = await supabase

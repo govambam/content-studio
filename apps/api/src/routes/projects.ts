@@ -74,7 +74,9 @@ projects.get("/:id", async (c) => {
 
   if (cards) {
     for (const card of cards) {
-      stats[card.stage as keyof typeof stats]++;
+      if (card.stage in stats) {
+        stats[card.stage as keyof typeof stats]++;
+      }
     }
   }
 
@@ -108,10 +110,13 @@ projects.delete("/:id", async (c) => {
   const { error } = await supabase
     .from("projects")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
 
   if (error) {
-    return c.json({ data: null, error: error.message } satisfies ApiResponse<null>, 500);
+    const status = error.code === "PGRST116" ? 404 : 500;
+    return c.json({ data: null, error: error.message } satisfies ApiResponse<null>, status);
   }
 
   return c.json({ data: null, error: null } satisfies ApiResponse<null>);
