@@ -6,15 +6,22 @@ async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
 
-  return res.json() as Promise<ApiResponse<T>>;
+    return (await res.json()) as ApiResponse<T>;
+  } catch (err) {
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : String(err),
+    } as ApiResponse<T>;
+  }
 }
 
 export const api = {
