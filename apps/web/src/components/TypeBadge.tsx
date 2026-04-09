@@ -6,7 +6,7 @@ const TYPE_CONFIG: Record<ContentType, { bg: string; color: string; label: strin
 };
 
 export function TypeBadge({ type }: { type: ContentType }) {
-  const config = TYPE_CONFIG[type];
+  const config = TYPE_CONFIG[type] ?? TYPE_CONFIG.short;
   return (
     <span
       style={{

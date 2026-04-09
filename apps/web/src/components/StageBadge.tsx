@@ -8,7 +8,7 @@ const STAGE_CONFIG: Record<Stage, { color: string; label: string }> = {
 };
 
 export function StageBadge({ stage }: { stage: Stage }) {
-  const config = STAGE_CONFIG[stage];
+  const config = STAGE_CONFIG[stage] ?? STAGE_CONFIG.unreviewed;
   return (
     <span
       style={{
@@ -30,7 +30,7 @@ export function StageBadge({ stage }: { stage: Stage }) {
 }
 
 export function StageDot({ stage }: { stage: Stage }) {
-  const config = STAGE_CONFIG[stage];
+  const config = STAGE_CONFIG[stage] ?? STAGE_CONFIG.unreviewed;
   return (
     <span
       style={{
