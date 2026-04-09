@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
+import { KanbanBoard } from "./components/KanbanBoard";
 import { useProjects } from "./hooks/useProjects";
+import { useCards } from "./hooks/useCards";
 
 function App() {
   const { projects, loading, createProject } = useProjects();
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
+  const { cards } = useCards(activeProjectId);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
@@ -110,27 +113,14 @@ function App() {
               </div>
             </header>
 
-            {/* Board area — placeholder for PR #6 */}
-            <div
-              style={{
-                flex: 1,
-                padding: "var(--page-padding)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+            {/* Kanban board */}
+            <KanbanBoard
+              cards={cards}
+              onCardClick={(cardId) => {
+                // Expanded card view — coming in PR #8
+                console.log("Card clicked:", cardId);
               }}
-            >
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 400,
-                  color: "var(--text-muted)",
-                  fontFamily: "var(--font-sans)",
-                }}
-              >
-                Kanban board for {activeProject.name} — coming in PR #6
-              </div>
-            </div>
+            />
           </>
         ) : (
           /* Empty state */
