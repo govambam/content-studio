@@ -37,14 +37,18 @@ cards.post("/projects/:projectId/cards", async (c) => {
   }
 
   // Get max sort_order for the unreviewed stage
-  const { data: maxCard } = await supabase
+  const { data: maxCard, error: maxError } = await supabase
     .from("cards")
     .select("sort_order")
     .eq("project_id", projectId)
     .eq("stage", "unreviewed")
     .order("sort_order", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
+
+  if (maxError) {
+    return c.json({ data: null, error: maxError.message } satisfies ApiResponse<null>, 500);
+  }
 
   const nextSort = (maxCard?.sort_order ?? -1) + 1;
 
@@ -97,13 +101,19 @@ cards.get("/cards/:id", async (c) => {
 // Update a card
 cards.put("/cards/:id", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<
-    Partial<Pick<Card, "title" | "summary" | "stage" | "content_type" | "sort_order">>
-  >();
+  const body = await c.req.json<Record<string, unknown>>();
+
+  const allowedFields = ["title", "summary", "stage", "content_type", "sort_order"] as const;
+  const sanitized: Record<string, unknown> = {};
+  for (const key of allowedFields) {
+    if (key in body) {
+      sanitized[key] = body[key];
+    }
+  }
 
   const { data, error } = await supabase
     .from("cards")
-    .update(body)
+    .update(sanitized)
     .eq("id", id)
     .select()
     .single();
