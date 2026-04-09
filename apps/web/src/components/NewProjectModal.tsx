@@ -44,9 +44,12 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
   const handleSubmit = async () => {
     if (!name.trim() || !slug) return;
     setSubmitting(true);
-    await onCreate({ name: name.trim(), slug, icon, color });
-    setSubmitting(false);
-    onClose();
+    try {
+      await onCreate({ name: name.trim(), slug, icon, color });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
