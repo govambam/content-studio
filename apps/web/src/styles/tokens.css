@@ -1,0 +1,43 @@
+:root {
+  /* Colors */
+  --bg-primary: #F4F4F4;
+  --bg-surface: #FFFFFF;
+  --bg-secondary: #E8E8E8;
+  --bg-sidebar: #0F172A;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --text-muted: #94A3B8;
+  --rule-strong: #000000;
+  --rule-faint: #E5E5E5;
+  --overlay-dark: rgba(0, 0, 0, 0.8);
+  --accent-inverse: #FFFFFF;
+  --accent-blue: #1E3AFF;
+
+  /* Stage colors */
+  --stage-unreviewed: #94A3B8;
+  --stage-considering: #8B5CF6;
+  --stage-production: #F59E0B;
+  --stage-published: #10B981;
+
+  /* Typography */
+  --font-sans: 'Space Grotesk', -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 48px;
+
+  /* Layout */
+  --sidebar-width: 220px;
+  --chat-panel-width: 360px;
+  --context-panel-width: 340px;
+  --page-padding: 24px;
+  --header-height: 56px;
+
+  /* Border weights */
+  --rule-thin: 1px;
+  --rule-thick: 2px;
+}
