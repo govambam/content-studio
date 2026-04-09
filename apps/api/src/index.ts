@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import projects from "./routes/projects.js";
 import context from "./routes/context.js";
+import cards from "./routes/cards.js";
 
 const app = new Hono();
 
@@ -20,6 +21,7 @@ app.get("/api/health", (c) => {
 // Mount routes
 app.route("/api/projects", projects);
 app.route("/api", context);
+app.route("/api", cards);
 
 const port = parseInt(process.env.PORT || "3001", 10);
 
