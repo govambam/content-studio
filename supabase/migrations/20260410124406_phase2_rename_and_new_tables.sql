@@ -30,13 +30,13 @@ alter publication supabase_realtime drop table artifacts;
 alter publication supabase_realtime drop table chat_messages;
 alter publication supabase_realtime drop table worker_jobs;
 
--- Storage policies on the context-files bucket, then the bucket itself.
+-- Storage policies on the context-files bucket. Supabase blocks direct
+-- DELETE from storage.objects via a security trigger, so we cannot remove
+-- the bucket itself from a migration. Leaving the bucket in place as an
+-- inert artifact — nothing references it after Phase 2.
 drop policy if exists "Authenticated users can upload context files" on storage.objects;
 drop policy if exists "Authenticated users can read context files" on storage.objects;
 drop policy if exists "Authenticated users can delete context files" on storage.objects;
-
-delete from storage.objects where bucket_id = 'context-files';
-delete from storage.buckets where id = 'context-files';
 
 -- Drop the AI tables. Cascade cleans up indexes, triggers, policies, FKs.
 drop table if exists worker_jobs cascade;
