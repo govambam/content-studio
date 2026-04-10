@@ -1,5 +1,11 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
+import { parseBody, parseParams } from "../lib/validate.js";
+import {
+  createProjectSchema,
+  idParam,
+  updateProjectSchema,
+} from "../lib/schemas.js";
 import type {
   ApiResponse,
   ContentStatus,
@@ -98,18 +104,9 @@ projects.get("/", async (c) => {
 
 // Create a project with optional labelIds
 projects.post("/", async (c) => {
-  const body = await c.req.json<{
-    title: string;
-    description?: string;
-    labelIds?: string[];
-  }>();
-
-  if (!body.title) {
-    return c.json(
-      { data: null, error: "title is required" } satisfies ApiResponse<null>,
-      400
-    );
-  }
+  const parsed = await parseBody(c, createProjectSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const clientId = c.req.header("x-client-id") ?? null;
 
@@ -181,7 +178,9 @@ projects.post("/", async (c) => {
 
 // Get a single project with labels + ticket counts
 projects.get("/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
   const project = await loadProjectById(id);
   if (!project) {
     return c.json(
@@ -194,14 +193,12 @@ projects.get("/:id", async (c) => {
 
 // Update a project (title / description / status / sort_order / labelIds)
 projects.put("/:id", async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json<{
-    title?: string;
-    description?: string;
-    status?: ContentStatus;
-    sort_order?: number;
-    labelIds?: string[];
-  }>();
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
+  const parsed = await parseBody(c, updateProjectSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   // Verify the project exists before touching anything. Without this,
   // Supabase's `update().eq(id)` succeeds silently with 0 rows affected
@@ -288,7 +285,9 @@ projects.put("/:id", async (c) => {
 
 // Delete a project (cascades tickets, assets, comments, activity)
 projects.delete("/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
 
   const { error } = await supabase
     .from("projects")
