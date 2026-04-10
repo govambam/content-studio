@@ -7,21 +7,17 @@ interface ChatPanelProps {
   onSendMessage: (content: string) => Promise<void>;
   sending: boolean;
   activeTab: string;
+  scopeLabel?: string;
+  quickActions?: Array<{ label: string; prompt: string }>;
 }
-
-const QUICK_ACTIONS: Record<string, Array<{ label: string; prompt: string }>> = {
-  details: [
-    { label: "Expand idea", prompt: "Expand on this idea. Add more detail about the target audience, the key visual moments, and why this would resonate with engineering leaders." },
-    { label: "Suggest variations", prompt: "Suggest 2-3 alternative angles or variations on this idea that we could also consider." },
-  ],
-};
 
 export function ChatPanel({
   messages,
   projectName,
   onSendMessage,
   sending,
-  activeTab,
+  scopeLabel = "scoped to this card",
+  quickActions = [],
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
 
@@ -31,8 +27,6 @@ export function ChatPanel({
     setInput("");
     await onSendMessage(msg);
   };
-
-  const quickActions = QUICK_ACTIONS[activeTab] ?? QUICK_ACTIONS.details;
 
   return (
     <div
@@ -83,7 +77,7 @@ export function ChatPanel({
             fontFamily: "var(--font-sans)",
           }}
         >
-          · scoped to this card
+          · {scopeLabel}
         </span>
       </div>
 
@@ -121,10 +115,7 @@ export function ChatPanel({
                 maxWidth: "88%",
                 padding: "10px 14px",
                 borderRadius: "12px",
-                background:
-                  msg.role === "user"
-                    ? "var(--text-primary)"
-                    : "#F1F5F9",
+                background: msg.role === "user" ? "var(--text-primary)" : "#F1F5F9",
                 color: msg.role === "user" ? "#FFFFFF" : "#334155",
                 fontSize: "12px",
                 lineHeight: 1.6,
@@ -162,36 +153,38 @@ export function ChatPanel({
         }}
       >
         {/* Quick actions */}
-        <div
-          style={{
-            display: "flex",
-            gap: "6px",
-            flexWrap: "wrap",
-            marginBottom: "8px",
-          }}
-        >
-          {quickActions.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => onSendMessage(action.prompt)}
-              disabled={sending}
-              style={{
-                padding: "4px 10px",
-                borderRadius: "12px",
-                border: "1px solid var(--rule-faint)",
-                background: "var(--bg-surface)",
-                fontSize: "11px",
-                color: "var(--text-secondary)",
-                fontFamily: "var(--font-sans)",
-                cursor: sending ? "default" : "pointer",
-                whiteSpace: "nowrap",
-                opacity: sending ? 0.5 : 1,
-              }}
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
+        {quickActions.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              gap: "6px",
+              flexWrap: "wrap",
+              marginBottom: "8px",
+            }}
+          >
+            {quickActions.map((action) => (
+              <button
+                key={action.label}
+                onClick={() => onSendMessage(action.prompt)}
+                disabled={sending}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "12px",
+                  border: "1px solid var(--rule-faint)",
+                  background: "var(--bg-surface)",
+                  fontSize: "11px",
+                  color: "var(--text-secondary)",
+                  fontFamily: "var(--font-sans)",
+                  cursor: sending ? "default" : "pointer",
+                  whiteSpace: "nowrap",
+                  opacity: sending ? 0.5 : 1,
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Input + Send */}
         <div style={{ display: "flex", gap: "8px" }}>
@@ -214,12 +207,8 @@ export function ChatPanel({
               background: "var(--bg-surface)",
               outline: "none",
             }}
-            onFocus={(e) =>
-              (e.target.style.borderColor = "var(--rule-strong)")
-            }
-            onBlur={(e) =>
-              (e.target.style.borderColor = "var(--rule-faint)")
-            }
+            onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--rule-faint)")}
           />
           <button
             onClick={handleSend}
