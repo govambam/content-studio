@@ -10,8 +10,11 @@ interface NewProjectModalProps {
     title: string;
     description?: string;
     labelIds: string[];
-  }) => Promise<void>;
-  onCreateLabel: (name: string, color: string) => Promise<Label | null>;
+  }) => Promise<{ error: string | null }>;
+  onCreateLabel: (
+    name: string,
+    color: string
+  ) => Promise<{ data: Label | null; error: string | null }>;
 }
 
 export function NewProjectModal({
@@ -25,6 +28,7 @@ export function NewProjectModal({
   const [selectedLabelIds, setSelectedLabelIds] = useState<Set<string>>(new Set());
   const [showNewLabel, setShowNewLabel] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -47,12 +51,17 @@ export function NewProjectModal({
     const trimmed = title.trim();
     if (!trimmed || submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await onCreate({
+      const res = await onCreate({
         title: trimmed,
         description: description.trim() || undefined,
         labelIds: Array.from(selectedLabelIds),
       });
+      if (res.error) {
+        setSubmitError(res.error);
+        return;
+      }
       onClose();
     } finally {
       setSubmitting(false);
@@ -60,11 +69,13 @@ export function NewProjectModal({
   };
 
   const handleInlineLabelCreate = async (name: string, color: string) => {
-    const created = await onCreateLabel(name, color);
-    if (created) {
-      setSelectedLabelIds((prev) => new Set(prev).add(created.id));
+    const res = await onCreateLabel(name, color);
+    if (res.error || !res.data) {
+      return { error: res.error ?? "label create failed" };
     }
+    setSelectedLabelIds((prev) => new Set(prev).add(res.data!.id));
     setShowNewLabel(false);
+    return { error: null };
   };
 
   return (
@@ -257,6 +268,25 @@ export function NewProjectModal({
             </button>
           )}
         </div>
+
+        {submitError && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "12px",
+              padding: "8px 12px",
+              border: "1px solid var(--rule-strong)",
+              background: "var(--bg-secondary)",
+              fontSize: "12px",
+              fontWeight: 500,
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              lineHeight: 1.4,
+            }}
+          >
+            {submitError}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
           <button

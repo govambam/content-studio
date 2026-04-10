@@ -12,7 +12,10 @@ const PRESET_COLORS = [
 ];
 
 interface NewLabelFormProps {
-  onSubmit: (name: string, color: string) => Promise<void>;
+  onSubmit: (
+    name: string,
+    color: string
+  ) => Promise<{ error: string | null }>;
   onCancel: () => void;
 }
 
@@ -20,14 +23,19 @@ export function NewLabelForm({ onSubmit, onCancel }: NewLabelFormProps) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed || submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await onSubmit(trimmed, color);
+      const res = await onSubmit(trimmed, color);
+      if (res.error) {
+        setSubmitError(res.error);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -101,6 +109,23 @@ export function NewLabelForm({ onSubmit, onCancel }: NewLabelFormProps) {
           />
         ))}
       </div>
+      {submitError && (
+        <div
+          role="alert"
+          style={{
+            fontSize: "11px",
+            fontWeight: 500,
+            color: "var(--text-primary)",
+            background: "var(--bg-secondary)",
+            padding: "6px 8px",
+            border: "1px solid var(--rule-strong)",
+            fontFamily: "var(--font-sans)",
+            lineHeight: 1.4,
+          }}
+        >
+          {submitError}
+        </div>
+      )}
       <div style={{ display: "flex", gap: "6px" }}>
         <button
           type="submit"

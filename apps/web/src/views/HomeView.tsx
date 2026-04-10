@@ -70,16 +70,18 @@ export function HomeView() {
     description?: string;
     labelIds: string[];
   }) => {
-    await createProject(input);
+    const res = await createProject(input);
+    return { error: res.error };
   };
 
   const handleCreateLabelFromModal = async (name: string, color: string) => {
     const res = await createLabel(name, color);
-    return res.data ?? null;
+    return { data: res.data, error: res.error };
   };
 
   const handleCreateLabelFromSidebar = async (name: string, color: string) => {
-    await createLabel(name, color);
+    const res = await createLabel(name, color);
+    return { error: res.error };
   };
 
   const handleDeleteLabel = async (labelId: string) => {

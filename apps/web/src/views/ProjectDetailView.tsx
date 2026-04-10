@@ -144,7 +144,13 @@ export function ProjectDetailView() {
     title: string;
     description?: string;
   }) => {
-    await createTicket(input);
+    const res = await createTicket(input);
+    return { error: res.error };
+  };
+
+  const handleCreateLabel = async (name: string, color: string) => {
+    const res = await createLabel(name, color);
+    return { error: res.error };
   };
 
   if (!project) {
@@ -158,9 +164,7 @@ export function ProjectDetailView() {
             navigate("/");
           }}
           onClearFilters={() => setSidebarFilters(new Set())}
-          onCreateLabel={async (name, color) => {
-            await createLabel(name, color);
-          }}
+          onCreateLabel={handleCreateLabel}
         />
         <main
           style={{
@@ -192,9 +196,7 @@ export function ProjectDetailView() {
           navigate("/");
         }}
         onClearFilters={() => setSidebarFilters(new Set())}
-        onCreateLabel={async (name, color) => {
-          await createLabel(name, color);
-        }}
+        onCreateLabel={handleCreateLabel}
       />
 
       <main
