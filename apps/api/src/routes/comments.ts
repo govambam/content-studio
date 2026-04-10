@@ -29,7 +29,7 @@ comments.post("/tickets/:ticketId/comments", async (c) => {
   const ticketId = c.req.param("ticketId");
   const body = await c.req.json<{ body: string }>();
 
-  const trimmed = typeof body.body === "string" ? body.body.trim() : "";
+  const trimmed = typeof body?.body === "string" ? body.body.trim() : "";
   if (!trimmed) {
     return c.json(
       { data: null, error: "body is required" } satisfies ApiResponse<null>,
@@ -93,7 +93,7 @@ comments.put("/comments/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ body: string }>();
 
-  const trimmed = typeof body.body === "string" ? body.body.trim() : "";
+  const trimmed = typeof body?.body === "string" ? body.body.trim() : "";
   if (!trimmed) {
     return c.json(
       { data: null, error: "body is required" } satisfies ApiResponse<null>,

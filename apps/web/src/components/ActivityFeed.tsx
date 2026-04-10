@@ -213,7 +213,10 @@ function CommentRow({ comment, onEdit, onDelete }: CommentRowProps) {
 
   const handleDelete = async () => {
     if (!window.confirm("Delete this comment?")) return;
-    await onDelete(comment.id);
+    const res = await onDelete(comment.id);
+    if (res.error) {
+      window.alert(`Could not delete comment: ${res.error}`);
+    }
   };
 
   return (
