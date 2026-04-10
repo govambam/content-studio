@@ -98,8 +98,8 @@ function App() {
                 </button>
                 <button
                   style={{
-                    background: "#1E293B",
-                    color: "var(--accent-inverse)",
+                    background: "var(--text-primary)",
+                    color: "#FFFFFF",
                     border: "none",
                     borderRadius: "0",
                     padding: "8px 16px",

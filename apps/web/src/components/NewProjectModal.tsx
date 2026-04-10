@@ -248,8 +248,8 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
             onClick={handleSubmit}
             disabled={!name.trim() || !slug || submitting}
             style={{
-              background: "#1E293B",
-              color: "var(--accent-inverse)",
+              background: "var(--text-primary)",
+              color: "#FFFFFF",
               border: "none",
               borderRadius: "0",
               padding: "8px 16px",
