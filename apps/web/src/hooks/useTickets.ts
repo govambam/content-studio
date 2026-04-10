@@ -3,6 +3,7 @@ import type { ContentStatus, Ticket } from "@content-studio/shared";
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { CLIENT_ID } from "../lib/clientId";
+import { track } from "../lib/analytics";
 
 export interface CreateTicketInput {
   title: string;
@@ -80,6 +81,11 @@ export function useTickets(projectId: string | null) {
     );
     if (res.data) {
       setTickets((prev) => [...prev, res.data!]);
+      track("ticket_created", {
+        project_id: projectId,
+        ticket_id: res.data.id,
+        has_description: Boolean(input.description?.trim()),
+      });
     }
     return res;
   };

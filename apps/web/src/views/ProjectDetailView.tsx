@@ -17,6 +17,7 @@ import { SkeletonKanbanBoard } from "../components/Skeleton";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
 import { useTickets } from "../hooks/useTickets";
+import { track } from "../lib/analytics";
 
 export function ProjectDetailView() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -76,6 +77,7 @@ export function ProjectDetailView() {
       return;
     }
     await updateProject(project.id, { title: trimmed });
+    track("ticket_title_edited", { project_id: project.id });
     setEditingTitle(false);
   };
 
@@ -92,6 +94,12 @@ export function ProjectDetailView() {
     if (!project) return;
     setStatusMenuOpen(false);
     if (status === project.status) return;
+    track("project_status_changed", {
+      project_id: project.id,
+      from: project.status,
+      to: status,
+      method: "dropdown",
+    });
     await updateProject(project.id, { status });
   };
 
@@ -101,6 +109,11 @@ export function ProjectDetailView() {
     const nextIds = has
       ? project.labels.filter((l) => l.id !== label.id).map((l) => l.id)
       : [...project.labels.map((l) => l.id), label.id];
+    track("label_attached_to_project", {
+      project_id: project.id,
+      label_id: label.id,
+      attached: !has,
+    });
     await updateProject(project.id, { labelIds: nextIds });
   };
 
@@ -121,6 +134,14 @@ export function ProjectDetailView() {
     async (itemId: string, toStatus: ContentStatus, toIndex: number) => {
       const ticket = tickets.find((t) => t.id === itemId);
       if (!ticket) return;
+      if (ticket.status !== toStatus) {
+        track("ticket_status_changed", {
+          ticket_id: ticket.id,
+          from: ticket.status,
+          to: toStatus,
+          method: "drag",
+        });
+      }
       // Build the new ordering for the destination column, insert the
       // moved ticket at `toIndex`, then call the reorder RPC in a
       // single round trip. The RPC rewrites status + sort_order for
@@ -527,7 +548,10 @@ export function ProjectDetailView() {
             </div>
           </div>
           <button
-            onClick={() => setShowNewTicket(true)}
+            onClick={() => {
+              track("new_ticket_modal_opened", { project_id: project.id });
+              setShowNewTicket(true);
+            }}
             style={{
               background: "var(--text-primary)",
               color: "#FFFFFF",
@@ -554,7 +578,10 @@ export function ProjectDetailView() {
             emptyMessage="No tickets yet. Break down the work by creating your first ticket."
             emptyAction={
               <button
-                onClick={() => setShowNewTicket(true)}
+                onClick={() => {
+              track("new_ticket_modal_opened", { project_id: project.id });
+              setShowNewTicket(true);
+            }}
                 style={{
                   background: "var(--text-primary)",
                   color: "#FFFFFF",

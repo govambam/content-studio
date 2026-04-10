@@ -6,6 +6,7 @@ import type {
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { CLIENT_ID } from "../lib/clientId";
+import { track } from "../lib/analytics";
 
 export function useActivity(ticketId: string | null) {
   const [items, setItems] = useState<ActivityFeedItem[]>([]);
@@ -90,6 +91,7 @@ export function useActivity(ticketId: string | null) {
       body,
     });
     if (res.data) {
+      track("comment_added", { ticket_id: ticketId, length: body.length });
       // Optimistic: prepend the new comment and a synthetic comment_added
       // event. On realtime echo, fetchFeed would dedupe anyway.
       await fetchFeed();
@@ -100,6 +102,7 @@ export function useActivity(ticketId: string | null) {
   const editComment = async (id: string, body: string) => {
     const res = await api.put<Comment>(`/comments/${id}`, { body });
     if (res.data) {
+      track("comment_edited", { comment_id: id });
       await fetchFeed();
     }
     return res;
@@ -108,6 +111,7 @@ export function useActivity(ticketId: string | null) {
   const deleteComment = async (id: string) => {
     const res = await api.del<null>(`/comments/${id}`);
     if (!res.error) {
+      track("comment_deleted", { comment_id: id });
       await fetchFeed();
     }
     return res;

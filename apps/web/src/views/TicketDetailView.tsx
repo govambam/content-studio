@@ -14,6 +14,7 @@ import { useProjects } from "../hooks/useProjects";
 import { useTicket } from "../hooks/useTicket";
 import { useActivity } from "../hooks/useActivity";
 import { useAssets } from "../hooks/useAssets";
+import { track } from "../lib/analytics";
 
 export function TicketDetailView() {
   const { projectId, ticketId } = useParams<{
@@ -74,17 +75,28 @@ export function TicketDetailView() {
       return;
     }
     await updateTicket({ title: trimmed });
+    track("ticket_title_edited", { ticket_id: ticket.id });
     setEditingTitle(false);
   };
 
   const handleSaveDescription = async (value: string) => {
     if (!ticket || value === ticket.description) return;
     await updateTicket({ description: value });
+    track("ticket_description_edited", {
+      ticket_id: ticket.id,
+      length: value.length,
+    });
   };
 
   const handleStatusChange = async (status: ContentStatus) => {
     setStatusMenuOpen(false);
     if (!ticket || status === ticket.status) return;
+    track("ticket_status_changed", {
+      ticket_id: ticket.id,
+      from: ticket.status,
+      to: status,
+      method: "dropdown",
+    });
     await updateTicket({ status });
   };
 
@@ -102,6 +114,7 @@ export function TicketDetailView() {
       window.alert(`Could not delete ticket: ${res.error}`);
       return;
     }
+    track("ticket_deleted", { ticket_id: ticket.id });
     navigate(`/projects/${projectId}`);
   };
 
@@ -377,7 +390,10 @@ export function TicketDetailView() {
               />
             ) : (
               <div
-                onClick={() => setEditingDescription(true)}
+                onClick={() => {
+                  track("markdown_editor_opened", { ticket_id: ticket.id });
+                  setEditingDescription(true);
+                }}
                 style={{
                   padding: "12px",
                   marginLeft: "-12px",

@@ -8,6 +8,7 @@ import { NewProjectModal } from "../components/NewProjectModal";
 import { SkeletonKanbanBoard } from "../components/Skeleton";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
+import { track } from "../lib/analytics";
 
 export function HomeView() {
   const navigate = useNavigate();
@@ -24,8 +25,10 @@ export function HomeView() {
   const toggleFilter = (labelId: string) => {
     setActiveFilterIds((prev) => {
       const next = new Set(prev);
+      const willBeActive = !next.has(labelId);
       if (next.has(labelId)) next.delete(labelId);
       else next.add(labelId);
+      track("label_filter_toggled", { label_id: labelId, active: willBeActive });
       return next;
     });
   };
@@ -46,6 +49,14 @@ export function HomeView() {
     async (itemId: string, toStatus: ContentStatus, toIndex: number) => {
       const project = projects.find((p) => p.id === itemId);
       if (!project) return;
+      if (project.status !== toStatus) {
+        track("project_status_changed", {
+          project_id: project.id,
+          from: project.status,
+          to: toStatus,
+          method: "drag",
+        });
+      }
       const columnItems = projects
         .filter((p) => p.status === toStatus && p.id !== itemId)
         .sort((a, b) => a.sort_order - b.sort_order);
@@ -157,7 +168,10 @@ export function HomeView() {
             </div>
           </div>
           <button
-            onClick={() => setShowNewProject(true)}
+            onClick={() => {
+              track("new_project_modal_opened", {});
+              setShowNewProject(true);
+            }}
             style={{
               background: "var(--text-primary)",
               color: "#FFFFFF",
@@ -191,7 +205,10 @@ export function HomeView() {
             emptyAction={
               projects.length === 0 ? (
                 <button
-                  onClick={() => setShowNewProject(true)}
+                  onClick={() => {
+              track("new_project_modal_opened", {});
+              setShowNewProject(true);
+            }}
                   style={{
                     background: "var(--text-primary)",
                     color: "#FFFFFF",

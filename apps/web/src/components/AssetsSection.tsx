@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Asset } from "@content-studio/shared";
 import { Markdown } from "./Markdown";
+import { track } from "../lib/analytics";
 
 interface AssetsSectionProps {
   assets: Asset[];
@@ -68,6 +69,10 @@ export function AssetsSection({
   };
 
   const handleAssetClick = async (asset: Asset) => {
+    track("asset_previewed", {
+      asset_id: asset.id,
+      kind: asset.mime_type || "unknown",
+    });
     previewRequestRef.current = asset.id;
     setPreviewing(asset);
     setPreviewContent({ kind: "loading" });
