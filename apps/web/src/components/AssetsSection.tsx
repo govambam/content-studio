@@ -28,6 +28,9 @@ export function AssetsSection({
     | { kind: "error"; message: string }
     | null
   >(null);
+  // Tracks the asset id of the most recently requested preview so we can
+  // discard slower responses when the user clicks a second asset.
+  const previewRequestRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleDragEnter = (e: DragEvent) => {
@@ -65,9 +68,13 @@ export function AssetsSection({
   };
 
   const handleAssetClick = async (asset: Asset) => {
+    previewRequestRef.current = asset.id;
     setPreviewing(asset);
     setPreviewContent({ kind: "loading" });
     const urlRes = await getDownloadUrl(asset.id);
+    // If the user clicked a different asset while this request was in
+    // flight, drop the response — a newer request has taken over.
+    if (previewRequestRef.current !== asset.id) return;
     if (urlRes.error || !urlRes.url) {
       setPreviewContent({
         kind: "error",
@@ -79,8 +86,10 @@ export function AssetsSection({
       try {
         const res = await fetch(urlRes.url);
         const text = await res.text();
+        if (previewRequestRef.current !== asset.id) return;
         setPreviewContent({ kind: "markdown", body: text });
       } catch (err) {
+        if (previewRequestRef.current !== asset.id) return;
         setPreviewContent({
           kind: "error",
           message: err instanceof Error ? err.message : String(err),
@@ -90,6 +99,7 @@ export function AssetsSection({
       setPreviewContent({ kind: "image", url: urlRes.url });
     } else {
       // Not previewable — just trigger download.
+      previewRequestRef.current = null;
       setPreviewing(null);
       setPreviewContent(null);
       window.open(urlRes.url, "_blank");
@@ -277,6 +287,7 @@ export function AssetsSection({
           asset={previewing}
           content={previewContent}
           onClose={() => {
+            previewRequestRef.current = null;
             setPreviewing(null);
             setPreviewContent(null);
           }}
