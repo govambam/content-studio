@@ -10,8 +10,8 @@ const chat = new Hono();
 // Get chat history for a card
 chat.get("/cards/:cardId/chat", async (c) => {
   const cardId = c.req.param("cardId");
-  const limit = parseInt(c.req.query("limit") ?? "50", 10);
-  const offset = parseInt(c.req.query("offset") ?? "0", 10);
+  const limit = parseInt(c.req.query("limit") || "50", 10) || 50;
+  const offset = parseInt(c.req.query("offset") || "0", 10) || 0;
 
   const { data, error } = await supabase
     .from("chat_messages")
@@ -105,15 +105,20 @@ chat.post("/cards/:cardId/chat", async (c) => {
   systemPrompt += `\n\n## Active Focus\nThe user is currently viewing the ${activeTab} tab.`;
   systemPrompt += `\n\n## Instructions\n${buildChatPrompt(activeTab)}`;
 
-  // Build messages array for Claude
+  // Build messages array for Claude (full conversation history)
   const messages = (history ?? []).map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
 
-  // Call Claude
+  // Ensure messages array is non-empty and starts with a user message
+  if (messages.length === 0) {
+    messages.push({ role: "user", content: body.content });
+  }
+
+  // Call Claude with full conversation
   try {
-    const rawResponse = await callClaude(systemPrompt, messages.length > 0 ? messages[messages.length - 1].content : body.content);
+    const rawResponse = await callClaude(systemPrompt, messages);
 
     // Parse response
     let chatResponse: string;
