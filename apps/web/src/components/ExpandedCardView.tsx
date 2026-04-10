@@ -109,6 +109,7 @@ export function ExpandedCardView({
     setEditingSummary(value);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
+      saveTimerRef.current = null;
       await api.put(`/cards/${cardId}`, { summary: value });
       setCard((prev) => prev ? { ...prev, summary: value } : prev);
     }, 1000);
