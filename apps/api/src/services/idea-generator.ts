@@ -61,8 +61,8 @@ export async function generateIdeas(
     try {
       ideas = JSON.parse(rawResponse);
     } catch {
-      // Try extracting JSON from markdown fencing
-      const match = rawResponse.match(/\[[\s\S]*\]/);
+      // Try extracting JSON array from markdown fencing (non-greedy)
+      const match = rawResponse.match(/\[[\s\S]*?\]/);
       if (!match) {
         throw new Error(`Failed to parse Claude response as JSON: ${rawResponse.slice(0, 200)}`);
       }
@@ -72,6 +72,14 @@ export async function generateIdeas(
     if (!Array.isArray(ideas) || ideas.length === 0) {
       throw new Error("Claude returned no ideas");
     }
+
+    // Validate each idea has required fields
+    ideas = ideas.filter(
+      (idea) =>
+        typeof idea.title === "string" &&
+        idea.title.length > 0 &&
+        typeof idea.summary === "string"
+    );
 
     // Get max sort_order for unreviewed stage
     const { data: maxCard } = await supabase
