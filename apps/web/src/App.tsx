@@ -20,6 +20,14 @@ function App() {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
+  const handleGenerateIdeas = async () => {
+    if (!activeProject) return;
+    await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
+    // Poll for new cards
+    setTimeout(() => refetchCards(), 5000);
+    setTimeout(() => refetchCards(), 10000);
+  };
+
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       <Sidebar
@@ -120,10 +128,7 @@ function App() {
                     fontWeight: 600,
                     fontFamily: "var(--font-sans)",
                   }}
-                  onClick={async () => {
-                    await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
-                    setTimeout(() => refetchCards(), 5000);
-                  }}
+                  onClick={handleGenerateIdeas}
                 >
                   Generate Ideas
                 </button>
@@ -139,11 +144,13 @@ function App() {
                   setExpandedCardId(null);
                   refetchCards();
                 }}
+                onDelete={refetchCards}
               />
             ) : (
               <KanbanBoard
                 cards={cards}
                 onCardClick={setExpandedCardId}
+                onGenerateMore={handleGenerateIdeas}
               />
             )}
 

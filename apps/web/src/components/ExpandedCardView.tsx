@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Card, ChatMessage, ContentType } from "@content-studio/shared";
+import type { Card, ChatMessage, ContentType, Stage } from "@content-studio/shared";
 import { api } from "../lib/api";
-import { StageBadge } from "./StageBadge";
 import { TypeBadge } from "./TypeBadge";
 import { ChatPanel } from "./ChatPanel";
 
@@ -9,6 +8,7 @@ interface ExpandedCardViewProps {
   cardId: string;
   projectName: string;
   onBack: () => void;
+  onDelete?: () => void;
 }
 
 interface CardDetail extends Card {
@@ -16,10 +16,18 @@ interface CardDetail extends Card {
   messages: ChatMessage[];
 }
 
+const STAGES: { value: Stage; label: string }[] = [
+  { value: "unreviewed", label: "Unreviewed" },
+  { value: "considering", label: "Considering" },
+  { value: "in_production", label: "In Production" },
+  { value: "published", label: "Published" },
+];
+
 export function ExpandedCardView({
   cardId,
   projectName,
   onBack,
+  onDelete,
 }: ExpandedCardViewProps) {
   const [card, setCard] = useState<CardDetail | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -38,9 +46,25 @@ export function ExpandedCardView({
     fetchCard();
   }, [fetchCard]);
 
+  const handleStageChange = async (newStage: Stage) => {
+    if (!card) return;
+    const res = await api.put<Card>(`/cards/${cardId}`, { stage: newStage });
+    if (res.data) {
+      setCard({ ...card, stage: res.data.stage });
+    }
+  };
+
+  const handleDeleteCard = async () => {
+    if (!confirm("Delete this card and all its content?")) return;
+    const res = await api.del(`/cards/${cardId}`);
+    if (!res.error) {
+      onDelete?.();
+      onBack();
+    }
+  };
+
   const handleSendMessage = async (content: string) => {
     setSending(true);
-    // Optimistically add user message
     const tempUserMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
       card_id: cardId,
@@ -61,20 +85,17 @@ export function ExpandedCardView({
       }>(`/cards/${cardId}/chat`, { content, active_tab: activeTab });
 
       if (res.data) {
-        // Replace temp message with real ones
         setMessages((prev) => [
           ...prev.filter((m) => m.id !== tempUserMsg.id),
           res.data!.user_message,
           res.data!.assistant_message,
         ]);
 
-        // Update card summary if content was updated
         if (res.data.updated_content && card) {
           setCard({ ...card, summary: res.data.updated_content });
         }
       }
     } catch {
-      // Keep temp message visible, add error
       setMessages((prev) => [
         ...prev,
         {
@@ -123,7 +144,14 @@ export function ExpandedCardView({
         }}
       >
         {/* Back link */}
-        <div style={{ padding: "12px 0 8px" }}>
+        <div
+          style={{
+            padding: "12px 0 8px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <button
             onClick={onBack}
             style={{
@@ -138,6 +166,21 @@ export function ExpandedCardView({
             }}
           >
             ← Back to board
+          </button>
+          <button
+            onClick={handleDeleteCard}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: "11px",
+              fontWeight: 500,
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-sans)",
+              padding: 0,
+              cursor: "pointer",
+            }}
+          >
+            Delete card
           </button>
         </div>
 
@@ -162,7 +205,33 @@ export function ExpandedCardView({
           >
             {card.title}
           </h1>
-          <StageBadge stage={card.stage} />
+
+          {/* Stage dropdown */}
+          <select
+            value={card.stage}
+            onChange={(e) => handleStageChange(e.target.value as Stage)}
+            style={{
+              padding: "4px 8px",
+              border: "1px solid var(--rule-faint)",
+              borderRadius: "0",
+              fontFamily: "var(--font-sans)",
+              fontSize: "10px",
+              fontWeight: 600,
+              textTransform: "uppercase" as const,
+              letterSpacing: "0.05em",
+              background: "var(--bg-surface)",
+              color: "var(--text-primary)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            {STAGES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+
           <TypeBadge type={card.content_type as ContentType} />
         </div>
       </header>
