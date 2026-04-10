@@ -35,23 +35,34 @@ export function MarkdownEditor({
     };
   }, []);
 
+  // `savedValueRef` is only updated AFTER the save resolves. A save that
+  // rejects must not leave the ref ahead of what the server actually has,
+  // otherwise subsequent calls would skip retrying.
   const flush = async () => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    if (value === savedValueRef.current) return;
-    savedValueRef.current = value;
-    await onSave(value);
+    const pending = value;
+    if (pending === savedValueRef.current) return;
+    try {
+      await onSave(pending);
+      savedValueRef.current = pending;
+    } catch (err) {
+      console.error("markdown autosave failed", err);
+    }
   };
 
   const scheduleSave = (next: string) => {
     setValue(next);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      if (next !== savedValueRef.current) {
+    debounceRef.current = setTimeout(async () => {
+      if (next === savedValueRef.current) return;
+      try {
+        await onSave(next);
         savedValueRef.current = next;
-        void onSave(next);
+      } catch (err) {
+        console.error("markdown autosave failed", err);
       }
     }, autosaveDelayMs);
   };

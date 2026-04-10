@@ -19,7 +19,13 @@ export function TicketDetailView() {
   const navigate = useNavigate();
   const { labels, createLabel } = useLabels();
   const { projects } = useProjects();
-  const { ticket, updateTicket, deleteTicket } = useTicket(ticketId ?? null);
+  const {
+    ticket,
+    loading: ticketLoading,
+    error: ticketError,
+    updateTicket,
+    deleteTicket,
+  } = useTicket(ticketId ?? null);
 
   const project = projects.find((p) => p.id === projectId) ?? null;
 
@@ -80,6 +86,12 @@ export function TicketDetailView() {
   };
 
   if (!ticket) {
+    const isError = !ticketLoading && ticketError !== null;
+    const message = ticketLoading
+      ? "Loading ticket…"
+      : isError
+        ? `Could not load ticket: ${ticketError}`
+        : "Ticket not found.";
     return (
       <div style={{ display: "flex", height: "100vh" }}>
         <Sidebar
@@ -98,15 +110,37 @@ export function TicketDetailView() {
           style={{
             flex: 1,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            gap: "12px",
             background: "var(--bg-primary)",
             fontFamily: "var(--font-sans)",
-            color: "var(--text-muted)",
+            color: ticketLoading ? "var(--text-muted)" : "var(--text-secondary)",
             fontSize: "14px",
+            padding: "24px",
+            textAlign: "center",
           }}
         >
-          Loading ticket…
+          <div>{message}</div>
+          {!ticketLoading && (
+            <button
+              onClick={() => navigate(`/projects/${projectId}`)}
+              style={{
+                background: "var(--bg-surface)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--rule-faint)",
+                borderRadius: "0",
+                padding: "8px 16px",
+                fontSize: "12px",
+                fontWeight: 700,
+                fontFamily: "var(--font-sans)",
+                cursor: "pointer",
+              }}
+            >
+              Back to project
+            </button>
+          )}
         </main>
       </div>
     );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ContentStatus, Ticket } from "@content-studio/shared";
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
@@ -15,16 +15,27 @@ export function useTicket(ticketId: string | null) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Track the currently requested id so we can drop stale responses when
+  // the user navigates between tickets fast.
+  const currentIdRef = useRef<string | null>(ticketId);
 
   const fetchTicket = useCallback(async () => {
     if (!ticketId) {
+      currentIdRef.current = null;
       setTicket(null);
+      setError(null);
       setLoading(false);
       return;
     }
+    currentIdRef.current = ticketId;
+    setLoading(true);
     const res = await api.get<Ticket>(`/tickets/${ticketId}`);
+    // If the user navigated away while the request was in flight, drop
+    // the response — a newer fetch has taken over.
+    if (currentIdRef.current !== ticketId) return;
     if (res.error) {
       setError(res.error);
+      setTicket(null);
     } else {
       setTicket(res.data);
       setError(null);
