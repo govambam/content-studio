@@ -1,9 +1,52 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-import { HomeView } from "./views/HomeView";
-import { ProjectDetailView } from "./views/ProjectDetailView";
-import { TicketDetailView } from "./views/TicketDetailView";
 import { DataProvider } from "./context/DataContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+
+// Route-level code splitting. Each view gets its own chunk so Home no
+// longer pulls react-markdown, the MarkdownEditor, or dnd-kit's Ticket
+// Detail paths on first paint. Home remains the largest chunk because
+// the Kanban live there, but the Ticket Detail chunk (markdown +
+// autosave + activity feed) is now deferred until the user navigates
+// into a ticket.
+const HomeView = lazy(() =>
+  import("./views/HomeView").then((m) => ({ default: m.HomeView }))
+);
+const ProjectDetailView = lazy(() =>
+  import("./views/ProjectDetailView").then((m) => ({
+    default: m.ProjectDetailView,
+  }))
+);
+const TicketDetailView = lazy(() =>
+  import("./views/TicketDetailView").then((m) => ({
+    default: m.TicketDetailView,
+  }))
+);
+
+// Minimal loading affordance rendered between route transitions. Uses
+// design-system tokens so it doesn't flash a mismatched chrome while a
+// chunk is still in flight.
+function RouteFallback() {
+  return (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--bg-primary)",
+        fontFamily: "var(--font-sans)",
+        fontSize: "12px",
+        fontWeight: 700,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        color: "var(--text-muted)",
+      }}
+    >
+      Loading…
+    </div>
+  );
+}
 
 // The outer black frame wraps the entire app shell (sidebar + main).
 // This is the "container" framing from v3 of the brutalist refinement —
@@ -25,14 +68,19 @@ function App() {
     >
       <ErrorBoundary>
         <DataProvider>
-          <Routes>
-            <Route path="/" element={<HomeView />} />
-            <Route path="/projects/:projectId" element={<ProjectDetailView />} />
-            <Route
-              path="/projects/:projectId/tickets/:ticketId"
-              element={<TicketDetailView />}
-            />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<HomeView />} />
+              <Route
+                path="/projects/:projectId"
+                element={<ProjectDetailView />}
+              />
+              <Route
+                path="/projects/:projectId/tickets/:ticketId"
+                element={<TicketDetailView />}
+              />
+            </Routes>
+          </Suspense>
         </DataProvider>
       </ErrorBoundary>
     </div>
