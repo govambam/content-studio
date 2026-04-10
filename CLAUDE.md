@@ -47,7 +47,7 @@ content-studio/
 │   │       └── styles/      # tokens.css, global styles
 │   └── api/                 # Hono backend API
 │       └── src/
-│           ├── routes/      # projects.ts, cards.ts
+│           ├── routes/      # labels.ts, projects.ts, tickets.ts, comments.ts, assets.ts
 │           └── db/          # Supabase client
 ├── packages/
 │   └── shared/              # Shared types (Project, Card, Stage, ContentType, ApiResponse)

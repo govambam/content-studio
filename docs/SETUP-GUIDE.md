@@ -86,9 +86,9 @@ There is no worker service. The previous `apps/worker` workspace was removed in 
 
 ## 5. Supabase
 
-The database has two tables (`projects`, `cards`) plus a single enum pair (`stage`, `content_type`). All migrations live in `supabase/migrations/` and are applied in timestamp order.
+The database has six tables — `labels`, `projects`, `project_labels` (join), `tickets`, `assets`, `comments`, `activity_events` — plus the `content_status` and `activity_event_type` enums. All migrations live in `supabase/migrations/` and are applied in timestamp order. The `assets` Storage bucket holds ticket attachments.
 
-Realtime is enabled on the `cards` table so the frontend can subscribe to live board updates. RLS is on with permissive `authenticated` + `service_role` policies — the app assumes trusted users only.
+Realtime is enabled on `labels`, `projects`, `tickets`, `comments`, `activity_events`, and `assets` so the frontend can subscribe to live updates across tabs. RLS is on with permissive `authenticated` + `service_role` policies — the app assumes trusted users only.
 
 ---
 
