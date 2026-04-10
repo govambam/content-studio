@@ -261,8 +261,6 @@ function KanbanColumn<T extends KanbanItem>({
             display: "flex",
             flexDirection: "column",
             gap: "8px",
-            flex: 1,
-            overflowY: "auto",
           }}
         >
           {items.map((item) => (
