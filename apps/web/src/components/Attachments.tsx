@@ -33,9 +33,12 @@ export function Attachments({ files, onUpload, onDelete }: AttachmentsProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    await onUpload(file, "docs");
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    try {
+      await onUpload(file, "docs");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
