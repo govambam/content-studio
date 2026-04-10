@@ -68,6 +68,13 @@ export function ExpandedCardView({
   const [editingSummary, setEditingSummary] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
+  // Cleanup save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
   const fetchCard = useCallback(async () => {
     const res = await api.get<CardDetail>(`/cards/${cardId}`);
     if (res.data) {
