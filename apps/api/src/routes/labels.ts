@@ -1,0 +1,121 @@
+import { Hono } from "hono";
+import { supabase } from "../db/supabase.js";
+import type { ApiResponse, Label } from "@content-studio/shared";
+
+const labels = new Hono();
+
+// List all labels, ordered by name
+labels.get("/", async (c) => {
+  const { data, error } = await supabase
+    .from("labels")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+
+  return c.json({ data, error: null } satisfies ApiResponse<Label[]>);
+});
+
+// Create a label
+labels.post("/", async (c) => {
+  const body = await c.req.json<{ name: string; color: string }>();
+
+  if (!body.name || !body.color) {
+    return c.json(
+      { data: null, error: "name and color are required" } satisfies ApiResponse<null>,
+      400
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("labels")
+    .insert({ name: body.name, color: body.color })
+    .select()
+    .single();
+
+  if (error) {
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+
+  return c.json({ data, error: null } satisfies ApiResponse<Label>, 201);
+});
+
+// Get a single label
+labels.get("/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const { data, error } = await supabase
+    .from("labels")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    const status = error.code === "PGRST116" ? 404 : 500;
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      status
+    );
+  }
+
+  return c.json({ data, error: null } satisfies ApiResponse<Label>);
+});
+
+// Update a label
+labels.put("/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<Partial<Pick<Label, "name" | "color">>>();
+
+  const sanitized: Record<string, unknown> = {};
+  if ("name" in body) sanitized.name = body.name;
+  if ("color" in body) sanitized.color = body.color;
+
+  const { data, error } = await supabase
+    .from("labels")
+    .update(sanitized)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    const status = error.code === "PGRST116" ? 404 : 500;
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      status
+    );
+  }
+
+  return c.json({ data, error: null } satisfies ApiResponse<Label>);
+});
+
+// Delete a label (cascades project_labels rows; projects themselves stay)
+labels.delete("/:id", async (c) => {
+  const id = c.req.param("id");
+
+  const { error } = await supabase
+    .from("labels")
+    .delete()
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    const status = error.code === "PGRST116" ? 404 : 500;
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      status
+    );
+  }
+
+  return c.json({ data: null, error: null } satisfies ApiResponse<null>);
+});
+
+export default labels;
