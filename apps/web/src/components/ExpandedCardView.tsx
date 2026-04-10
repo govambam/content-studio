@@ -50,7 +50,7 @@ export function ExpandedCardView({
     if (!card) return;
     const res = await api.put<Card>(`/cards/${cardId}`, { stage: newStage });
     if (res.data) {
-      setCard({ ...card, stage: res.data.stage });
+      setCard((prev) => prev ? { ...prev, stage: res.data!.stage } : prev);
     }
   };
 
