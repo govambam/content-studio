@@ -94,6 +94,9 @@ export function ExpandedCardView({
         if (res.data.updated_content && card) {
           setCard({ ...card, summary: res.data.updated_content });
         }
+      } else {
+        // API returned an error response
+        throw new Error(res.error ?? "Unknown error");
       }
     } catch {
       setMessages((prev) => [

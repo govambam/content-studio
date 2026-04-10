@@ -20,12 +20,18 @@ function App() {
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
+  const [generating, setGenerating] = useState(false);
+
   const handleGenerateIdeas = async () => {
-    if (!activeProject) return;
+    if (!activeProject || generating) return;
+    setGenerating(true);
     await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
-    // Poll for new cards
-    setTimeout(() => refetchCards(), 5000);
-    setTimeout(() => refetchCards(), 10000);
+    // Poll for new cards, then stop
+    await new Promise((r) => setTimeout(r, 5000));
+    await refetchCards();
+    await new Promise((r) => setTimeout(r, 5000));
+    await refetchCards();
+    setGenerating(false);
   };
 
   return (
@@ -127,10 +133,12 @@ function App() {
                     fontSize: "12px",
                     fontWeight: 600,
                     fontFamily: "var(--font-sans)",
+                    opacity: generating ? 0.5 : 1,
                   }}
                   onClick={handleGenerateIdeas}
+                  disabled={generating}
                 >
-                  Generate Ideas
+                  {generating ? "Generating..." : "Generate Ideas"}
                 </button>
               </div>
             </header>
