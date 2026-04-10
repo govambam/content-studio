@@ -2,9 +2,11 @@
 
 ## What This Is
 
-Content Studio is a minimal, Linear-style issue tracker used internally by Macroscope's content team. Projects contain cards that move through a four-column Kanban pipeline. That's the entire product right now.
+Content Studio is a content pipeline manager used internally by Macroscope's content team. It organizes work into a three-level hierarchy: **labels** tag **projects** (content initiatives like "make a video about custom eligibility rules"), projects contain **tickets** (units of work like "write script", "record screencast"), and tickets carry **assets** (markdown scripts, images, other files). The Home view is a Kanban of Projects filtered by Label; clicking a Project opens a Kanban of its Tickets; clicking a Ticket opens a Linear-style issue view with description, assets, activity feed, and comments.
 
-It started life as an AI-first content-pipeline app; Phase 1 (April 2026) stripped every AI feature. Future phases will layer Linear-tracker features, production telemetry, and a reskin back on. See `../ROADMAP.md` in the parent directory for the four-phase plan.
+It started life as an AI-first content-pipeline app. Phase 1 (April 2026) stripped every AI feature down to a minimal Linear-clone tracker. Phase 2 (April 2026, in progress) is the structural rewrite into the labels/projects/tickets/assets model described above. Phase 3 adds production telemetry; Phase 4 is the reskin. See `../ROADMAP.md` in the parent directory for the full multi-phase plan and `../PHASE-2-PLAN.md` for the current PR sequence.
+
+**Terminology flip (important).** Phase 1 used "project" for what Phase 2 calls a "label", and "card" for what Phase 2 calls a "project". The Phase 1 names are dead. If you see "card" in source, comments, or new code during Phase 2 execution: it's a bug, rename it.
 
 ## Key Documents — Read These First
 
