@@ -60,21 +60,29 @@ tickets.get("/projects/:projectId/tickets", async (c) => {
         .select("ticket_id")
         .in("ticket_id", ticketIds),
     ]);
-    if (assetsRes.data) {
-      for (const row of assetsRes.data) {
-        assetCounts.set(
-          row.ticket_id,
-          (assetCounts.get(row.ticket_id) ?? 0) + 1
-        );
-      }
+    if (assetsRes.error) {
+      return c.json(
+        { data: null, error: assetsRes.error.message } satisfies ApiResponse<null>,
+        500
+      );
     }
-    if (commentsRes.data) {
-      for (const row of commentsRes.data) {
-        commentCounts.set(
-          row.ticket_id,
-          (commentCounts.get(row.ticket_id) ?? 0) + 1
-        );
-      }
+    if (commentsRes.error) {
+      return c.json(
+        { data: null, error: commentsRes.error.message } satisfies ApiResponse<null>,
+        500
+      );
+    }
+    for (const row of assetsRes.data ?? []) {
+      assetCounts.set(
+        row.ticket_id,
+        (assetCounts.get(row.ticket_id) ?? 0) + 1
+      );
+    }
+    for (const row of commentsRes.data ?? []) {
+      commentCounts.set(
+        row.ticket_id,
+        (commentCounts.get(row.ticket_id) ?? 0) + 1
+      );
     }
   }
 
