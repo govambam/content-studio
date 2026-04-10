@@ -34,3 +34,84 @@ input, textarea, select {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+.cs-markdown h1,
+.cs-markdown h2,
+.cs-markdown h3,
+.cs-markdown h4 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 16px 0 8px;
+}
+
+.cs-markdown h1 { font-size: 20px; }
+.cs-markdown h2 { font-size: 16px; }
+.cs-markdown h3 { font-size: 14px; }
+.cs-markdown h4 { font-size: 13px; }
+
+.cs-markdown p {
+  margin: 0 0 12px;
+}
+
+.cs-markdown ul,
+.cs-markdown ol {
+  margin: 0 0 12px 24px;
+}
+
+.cs-markdown li {
+  margin: 4px 0;
+}
+
+.cs-markdown code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-secondary);
+  padding: 1px 4px;
+  color: var(--text-primary);
+}
+
+.cs-markdown pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-secondary);
+  padding: 12px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  color: var(--text-primary);
+}
+
+.cs-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.cs-markdown blockquote {
+  margin: 0 0 12px;
+  padding: 4px 12px;
+  border-left: 2px solid var(--rule-strong);
+  color: var(--text-muted);
+}
+
+.cs-markdown a {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.cs-markdown table {
+  border-collapse: collapse;
+  margin: 0 0 12px;
+}
+
+.cs-markdown th,
+.cs-markdown td {
+  border: 1px solid var(--rule-faint);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.cs-markdown th {
+  background: var(--bg-secondary);
+  font-weight: 700;
+}
