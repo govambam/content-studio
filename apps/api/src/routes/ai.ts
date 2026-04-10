@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
 import { generateIdeas } from "../services/idea-generator.js";
+import { generateArtifact } from "../services/artifact-generator.js";
 import type { ApiResponse } from "@content-studio/shared";
 
 const ai = new Hono();
@@ -48,6 +49,27 @@ ai.post("/projects/:projectId/generate-ideas", async (c) => {
   });
 
   return c.json({ data: { job_id: job.id }, error: null }, 202);
+});
+
+// Generate a demo flow or script artifact for a card
+ai.post("/cards/:cardId/generate-artifact", async (c) => {
+  const cardId = c.req.param("cardId");
+  const body = await c.req.json<{ type: "demo-flow" | "script" }>();
+
+  if (!body.type || (body.type !== "demo-flow" && body.type !== "script")) {
+    return c.json(
+      { data: null, error: "type must be 'demo-flow' or 'script'" } satisfies ApiResponse<null>,
+      400
+    );
+  }
+
+  try {
+    const result = await generateArtifact(cardId, body.type);
+    return c.json({ data: result.artifact, error: null });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ data: null, error: message } satisfies ApiResponse<null>, 500);
+  }
 });
 
 export default ai;

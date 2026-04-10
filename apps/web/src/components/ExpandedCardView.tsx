@@ -5,6 +5,7 @@ import { Breadcrumbs } from "./Breadcrumbs";
 import { SubItems } from "./SubItems";
 import { Attachments } from "./Attachments";
 import { ActivityThread } from "./ActivityThread";
+import { ArtifactModal } from "./ArtifactModal";
 import { TypeBadge } from "./TypeBadge";
 import { PropertiesSidebar } from "./PropertiesSidebar";
 
@@ -32,24 +33,10 @@ interface CardDetail extends Card {
   messages: ChatMessage[];
 }
 
-type ViewScope = "details" | "demo-flow" | "script";
-
-const QUICK_ACTIONS: Record<ViewScope, Array<{ label: string; prompt: string }>> = {
-  details: [
-    { label: "Expand idea", prompt: "Expand on this idea. Add more detail about the target audience, the key visual moments, and why this would resonate with engineering leaders." },
-    { label: "Suggest variations", prompt: "Suggest 2-3 alternative angles or variations on this idea that we could also consider." },
-  ],
-  "demo-flow": [
-    { label: "Add more detail", prompt: "Add more detail to each scene. Include specific on-screen elements, transition notes, and timing guidance." },
-    { label: "Suggest B-roll", prompt: "Suggest B-roll shots and visual inserts that would elevate this demo." },
-    { label: "Restructure scenes", prompt: "Restructure the scene order for better narrative flow." },
-  ],
-  script: [
-    { label: "Punch up the hook", prompt: "Rewrite the opening hook to be more attention-grabbing. The first 5 seconds need to stop the scroll." },
-    { label: "Shorten to 60s", prompt: "Condense this script to fit within 60-90 seconds of spoken narration." },
-    { label: "Add social copy", prompt: "Write social media copy for posting this video: one for Twitter, one for LinkedIn." },
-  ],
-};
+const IDEA_QUICK_ACTIONS = [
+  { label: "Expand idea", prompt: "Expand on this idea. Add more detail about the target audience, the key visual moments, and why this would resonate with engineering leaders." },
+  { label: "Suggest variations", prompt: "Suggest 2-3 alternative angles or variations on this idea that we could also consider." },
+];
 
 export function ExpandedCardView({
   cardId,
@@ -63,12 +50,11 @@ export function ExpandedCardView({
   const [card, setCard] = useState<CardDetail | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
-  const [viewScope, setViewScope] = useState<ViewScope>("details");
   const [generatingArtifact, setGeneratingArtifact] = useState<string | null>(null);
+  const [openArtifactType, setOpenArtifactType] = useState<string | null>(null);
   const [editingSummary, setEditingSummary] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  // Cleanup save timer on unmount
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -84,15 +70,6 @@ export function ExpandedCardView({
   }, [cardId]);
 
   useEffect(() => { fetchCard(); }, [fetchCard]);
-
-  useEffect(() => {
-    if (!cardId) return;
-    const fetchChat = async () => {
-      const res = await api.get<ChatMessage[]>(`/cards/${cardId}/chat`);
-      if (res.data) setMessages(res.data);
-    };
-    fetchChat();
-  }, [cardId, viewScope]);
 
   const handleStageChange = async (newStage: Stage) => {
     const res = await api.put<Card>(`/cards/${cardId}`, { stage: newStage });
@@ -116,25 +93,42 @@ export function ExpandedCardView({
   };
 
   const handleSummaryBlur = async () => {
-    if (editingSummary !== null && saveTimerRef.current) {
+    if (editingSummary === null) return;
+    // Flush any pending debounced save
+    if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
       await api.put(`/cards/${cardId}`, { summary: editingSummary });
       setCard((prev) => prev ? { ...prev, summary: editingSummary } : prev);
-      setEditingSummary(null);
     }
+    // Always clear editing state so future renders use the saved value
+    setEditingSummary(null);
   };
 
   const handleGenerateArtifact = async (artifactType: string) => {
     setGeneratingArtifact(artifactType);
     try {
-      const prompt = artifactType === "demo-flow"
-        ? "Generate a detailed demo flow for this idea."
-        : "Generate a full script based on this demo flow.";
-      await api.post(`/cards/${cardId}/chat`, { content: prompt, active_tab: artifactType });
-      await fetchCard();
-      setViewScope(artifactType as ViewScope);
+      const res = await api.post<ArtifactDetail>(
+        `/cards/${cardId}/generate-artifact`,
+        { type: artifactType }
+      );
+      if (res.data) {
+        await fetchCard();
+        setOpenArtifactType(artifactType);
+      }
     } finally {
       setGeneratingArtifact(null);
+    }
+  };
+
+  const handleRegenerateArtifact = async () => {
+    if (!openArtifactType) return;
+    const res = await api.post<ArtifactDetail>(
+      `/cards/${cardId}/generate-artifact`,
+      { type: openArtifactType }
+    );
+    if (res.data) {
+      await fetchCard();
     }
   };
 
@@ -152,7 +146,7 @@ export function ExpandedCardView({
         user_message: ChatMessage;
         assistant_message: ChatMessage;
         updated_content: string | null;
-      }>(`/cards/${cardId}/chat`, { content, active_tab: viewScope });
+      }>(`/cards/${cardId}/chat`, { content, active_tab: "details" });
 
       if (res.data) {
         setMessages((prev) => [
@@ -160,10 +154,8 @@ export function ExpandedCardView({
           res.data!.user_message,
           res.data!.assistant_message,
         ]);
-        if (res.data.updated_content && viewScope === "details") {
+        if (res.data.updated_content) {
           setCard((prev) => prev ? { ...prev, summary: res.data!.updated_content! } : prev);
-        } else if (res.data.updated_content) {
-          await fetchCard();
         }
       } else {
         throw new Error(res.error ?? "Unknown error");
@@ -187,25 +179,19 @@ export function ExpandedCardView({
     );
   }
 
-  const currentArtifact = viewScope !== "details" ? card.artifacts.find((a) => a.type === viewScope) : null;
   const summaryValue = editingSummary ?? card.summary;
-
-  const breadcrumbSegments = [
-    { label: "Board", onClick: onBack },
-    ...(viewScope === "details"
-      ? [{ label: card.title }]
-      : [
-          { label: card.title, onClick: () => setViewScope("details") },
-          { label: viewScope === "demo-flow" ? "Demo Flow" : "Script" },
-        ]),
-  ];
+  const openArtifact = openArtifactType
+    ? card.artifacts.find((a) => a.type === openArtifactType)
+    : null;
 
   return (
     <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
       {/* Content column */}
       <div style={{ flex: 1, overflowY: "auto", padding: "var(--page-padding)" }}>
-        {/* Breadcrumbs */}
-        <Breadcrumbs segments={breadcrumbSegments} />
+        <Breadcrumbs segments={[
+          { label: "Board", onClick: onBack },
+          { label: card.title },
+        ]} />
 
         {/* Card header */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
@@ -215,79 +201,47 @@ export function ExpandedCardView({
           <TypeBadge type={card.content_type as ContentType} />
         </div>
 
-        {/* Content area */}
-        {viewScope === "details" ? (
-          <>
-            {/* Editable idea summary */}
-            <div style={{ marginBottom: "24px" }}>
-              <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: "var(--text-secondary)", marginBottom: "8px", fontFamily: "var(--font-sans)" }}>
-                Idea Summary
-              </div>
-              <textarea
-                value={summaryValue}
-                onChange={(e) => handleSummaryChange(e.target.value)}
-                onBlur={handleSummaryBlur}
-                placeholder="Describe the idea..."
-                style={{
-                  width: "100%",
-                  minHeight: "80px",
-                  padding: "16px 20px",
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--rule-faint)",
-                  borderRadius: "0",
-                  fontSize: "14px",
-                  fontWeight: 400,
-                  color: "var(--text-primary)",
-                  lineHeight: 1.7,
-                  fontFamily: "var(--font-sans)",
-                  outline: "none",
-                  resize: "vertical" as const,
-                }}
-                onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
-              />
-            </div>
+        {/* Editable idea summary */}
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: "var(--text-secondary)", marginBottom: "8px", fontFamily: "var(--font-sans)" }}>
+            Idea Summary
+          </div>
+          <textarea
+            value={summaryValue}
+            onChange={(e) => handleSummaryChange(e.target.value)}
+            onBlur={handleSummaryBlur}
+            placeholder="Describe the idea..."
+            style={{
+              width: "100%",
+              minHeight: "80px",
+              padding: "16px 20px",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--rule-faint)",
+              borderRadius: "0",
+              fontSize: "14px",
+              fontWeight: 400,
+              color: "var(--text-primary)",
+              lineHeight: 1.7,
+              fontFamily: "var(--font-sans)",
+              outline: "none",
+              resize: "vertical" as const,
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
+          />
+        </div>
 
-            <SubItems
-              artifacts={card.artifacts}
-              onNavigate={(type) => setViewScope(type as ViewScope)}
-              onGenerate={handleGenerateArtifact}
-              generating={generatingArtifact}
-            />
+        <SubItems
+          artifacts={card.artifacts}
+          onNavigate={(type) => setOpenArtifactType(type)}
+          onGenerate={handleGenerateArtifact}
+          generating={generatingArtifact}
+        />
 
-            <Attachments
-              files={contextFiles}
-              onUpload={onUploadFile}
-              onDelete={onDeleteFile}
-            />
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setViewScope("details")}
-              style={{
-                background: "none", border: "none", fontSize: "12px", fontWeight: 500,
-                color: "var(--text-secondary)", fontFamily: "var(--font-sans)", padding: 0,
-                cursor: "pointer", marginBottom: "16px", display: "block",
-              }}
-            >
-              ← Back to idea
-            </button>
-
-            {currentArtifact ? (
-              <div style={{
-                padding: "24px", background: "var(--bg-surface)", border: "1px solid var(--rule-faint)",
-                borderRadius: "0", fontSize: "14px", fontWeight: 400, color: "var(--text-primary)",
-                lineHeight: 1.7, fontFamily: "var(--font-sans)", whiteSpace: "pre-wrap",
-              }}>
-                {currentArtifact.content || "Content is being generated..."}
-              </div>
-            ) : (
-              <div style={{ padding: "40px 20px", textAlign: "center", fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
-                No {viewScope === "demo-flow" ? "demo flow" : "script"} yet. Use the thread below to generate one.
-              </div>
-            )}
-          </>
-        )}
+        <Attachments
+          files={contextFiles}
+          onUpload={onUploadFile}
+          onDelete={onDeleteFile}
+        />
 
         {/* Activity thread */}
         <ActivityThread
@@ -295,7 +249,7 @@ export function ExpandedCardView({
           projectName={projectName}
           onSendMessage={handleSendMessage}
           sending={sending}
-          quickActions={QUICK_ACTIONS[viewScope]}
+          quickActions={IDEA_QUICK_ACTIONS}
         />
       </div>
 
@@ -308,6 +262,16 @@ export function ExpandedCardView({
         onStageChange={handleStageChange}
         onDelete={handleDeleteCard}
       />
+
+      {/* Artifact modal */}
+      {openArtifact && (
+        <ArtifactModal
+          artifact={openArtifact}
+          cardTitle={card.title}
+          onClose={() => setOpenArtifactType(null)}
+          onRegenerate={handleRegenerateArtifact}
+        />
+      )}
     </div>
   );
 }
