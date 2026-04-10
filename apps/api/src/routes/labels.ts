@@ -48,6 +48,30 @@ labels.post("/", async (c) => {
   return c.json({ data, error: null } satisfies ApiResponse<Label>, 201);
 });
 
+// Report how many projects use a label (for the delete confirm dialog)
+labels.get("/:id/usage", async (c) => {
+  const id = c.req.param("id");
+
+  const { count, error } = await supabase
+    .from("project_labels")
+    .select("project_id", { count: "exact", head: true })
+    .eq("label_id", id);
+
+  if (error) {
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+
+  return c.json(
+    {
+      data: { project_count: count ?? 0 },
+      error: null,
+    } satisfies ApiResponse<{ project_count: number }>
+  );
+});
+
 // Get a single label
 labels.get("/:id", async (c) => {
   const id = c.req.param("id");

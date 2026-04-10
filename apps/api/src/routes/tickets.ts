@@ -30,11 +30,11 @@ async function writeActivityEvent(
   }
 }
 
-// List tickets in a project
+// List tickets in a project, annotated with asset/comment counts
 tickets.get("/projects/:projectId/tickets", async (c) => {
   const projectId = c.req.param("projectId");
 
-  const { data, error } = await supabase
+  const { data: rows, error } = await supabase
     .from("tickets")
     .select("*")
     .eq("project_id", projectId)
@@ -48,7 +48,51 @@ tickets.get("/projects/:projectId/tickets", async (c) => {
     );
   }
 
-  return c.json({ data, error: null } satisfies ApiResponse<Ticket[]>);
+  const ticketIds = (rows ?? []).map((r) => r.id);
+  const assetCounts = new Map<string, number>();
+  const commentCounts = new Map<string, number>();
+
+  if (ticketIds.length > 0) {
+    const [assetsRes, commentsRes] = await Promise.all([
+      supabase.from("assets").select("ticket_id").in("ticket_id", ticketIds),
+      supabase
+        .from("comments")
+        .select("ticket_id")
+        .in("ticket_id", ticketIds),
+    ]);
+    if (assetsRes.error) {
+      return c.json(
+        { data: null, error: assetsRes.error.message } satisfies ApiResponse<null>,
+        500
+      );
+    }
+    if (commentsRes.error) {
+      return c.json(
+        { data: null, error: commentsRes.error.message } satisfies ApiResponse<null>,
+        500
+      );
+    }
+    for (const row of assetsRes.data ?? []) {
+      assetCounts.set(
+        row.ticket_id,
+        (assetCounts.get(row.ticket_id) ?? 0) + 1
+      );
+    }
+    for (const row of commentsRes.data ?? []) {
+      commentCounts.set(
+        row.ticket_id,
+        (commentCounts.get(row.ticket_id) ?? 0) + 1
+      );
+    }
+  }
+
+  const annotated: Ticket[] = (rows ?? []).map((t) => ({
+    ...t,
+    asset_count: assetCounts.get(t.id) ?? 0,
+    comment_count: commentCounts.get(t.id) ?? 0,
+  }));
+
+  return c.json({ data: annotated, error: null } satisfies ApiResponse<Ticket[]>);
 });
 
 // Create a ticket (bottom of Backlog per PHASE-2-PLAN.md §4, Q7)

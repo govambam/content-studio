@@ -10,6 +10,7 @@ interface SidebarProps {
   onToggleFilter: (labelId: string) => void;
   onClearFilters: () => void;
   onCreateLabel: (name: string, color: string) => Promise<void>;
+  onDeleteLabel?: (labelId: string) => Promise<void>;
 }
 
 export function Sidebar({
@@ -18,6 +19,7 @@ export function Sidebar({
   onToggleFilter,
   onClearFilters,
   onCreateLabel,
+  onDeleteLabel,
 }: SidebarProps) {
   const [showNewLabel, setShowNewLabel] = useState(false);
 
@@ -151,12 +153,46 @@ export function Sidebar({
         )}
 
         {labels.map((label) => (
-          <div key={label.id} style={{ padding: "2px 4px" }}>
-            <LabelChip
-              label={label}
-              active={activeFilterIds.has(label.id)}
-              onClick={() => onToggleFilter(label.id)}
-            />
+          <div
+            key={label.id}
+            style={{
+              padding: "2px 4px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LabelChip
+                label={label}
+                active={activeFilterIds.has(label.id)}
+                onClick={() => onToggleFilter(label.id)}
+              />
+            </div>
+            {onDeleteLabel && (
+              <button
+                onClick={() => {
+                  void onDeleteLabel(label.id);
+                }}
+                aria-label={`Delete label ${label.name}`}
+                title={`Delete label ${label.name}`}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--rule-faint)",
+                  borderRadius: "0",
+                  padding: "0 6px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "var(--text-muted)",
+                  fontFamily: "var(--font-sans)",
+                  cursor: "pointer",
+                  lineHeight: "18px",
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            )}
           </div>
         ))}
 

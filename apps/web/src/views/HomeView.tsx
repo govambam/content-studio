@@ -5,13 +5,19 @@ import { Sidebar } from "../components/Sidebar";
 import { KanbanBoard } from "../components/KanbanBoard";
 import { ProjectCard } from "../components/ProjectCard";
 import { NewProjectModal } from "../components/NewProjectModal";
+import { SkeletonKanbanBoard } from "../components/Skeleton";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
 
 export function HomeView() {
   const navigate = useNavigate();
-  const { labels, createLabel } = useLabels();
-  const { projects, createProject, updateProject } = useProjects();
+  const { labels, createLabel, deleteLabel, getLabelUsage } = useLabels();
+  const {
+    projects,
+    loading: projectsLoading,
+    createProject,
+    updateProject,
+  } = useProjects();
   const [activeFilterIds, setActiveFilterIds] = useState<Set<string>>(new Set());
   const [showNewProject, setShowNewProject] = useState(false);
 
@@ -76,6 +82,31 @@ export function HomeView() {
     await createLabel(name, color);
   };
 
+  const handleDeleteLabel = async (labelId: string) => {
+    const usageRes = await getLabelUsage(labelId);
+    const count = usageRes.data?.project_count ?? 0;
+    const label = labels.find((l) => l.id === labelId);
+    const name = label?.name ?? "this label";
+    const message =
+      count === 0
+        ? `Delete "${name}"? It is not applied to any projects.`
+        : `Delete "${name}"? It is applied to ${count} project${
+            count === 1 ? "" : "s"
+          } — those projects will stay, but the label will be removed from them.`;
+    if (!window.confirm(message)) return;
+    const res = await deleteLabel(labelId);
+    if (res.error) {
+      window.alert(`Could not delete label: ${res.error}`);
+      return;
+    }
+    setActiveFilterIds((prev) => {
+      if (!prev.has(labelId)) return prev;
+      const next = new Set(prev);
+      next.delete(labelId);
+      return next;
+    });
+  };
+
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       <Sidebar
@@ -84,6 +115,7 @@ export function HomeView() {
         onToggleFilter={toggleFilter}
         onClearFilters={clearFilters}
         onCreateLabel={handleCreateLabelFromSidebar}
+        onDeleteLabel={handleDeleteLabel}
       />
 
       <main
@@ -150,16 +182,27 @@ export function HomeView() {
           </button>
         </header>
 
-        <KanbanBoard<Project>
-          items={visibleProjects}
-          renderItem={(project) => (
-            <ProjectCard
-              project={project}
-              onClick={() => navigate(`/projects/${project.id}`)}
-            />
-          )}
-          onItemMoved={handleItemMoved}
-        />
+        {projectsLoading ? (
+          <SkeletonKanbanBoard />
+        ) : (
+          <KanbanBoard<Project>
+            items={visibleProjects}
+            renderItem={(project) => (
+              <ProjectCard
+                project={project}
+                onClick={() => navigate(`/projects/${project.id}`)}
+              />
+            )}
+            onItemMoved={handleItemMoved}
+            emptyMessage={
+              projects.length === 0
+                ? "No projects yet. Click + New Project to start your first content initiative."
+                : activeFilterIds.size > 0
+                  ? "No projects match the current label filter."
+                  : undefined
+            }
+          />
+        )}
       </main>
 
       {showNewProject && (
