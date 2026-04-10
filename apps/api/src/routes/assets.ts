@@ -195,20 +195,43 @@ assets.post("/assets/:id/confirm", async (c) => {
     );
   }
 
-  const { error: actError } = await supabase.from("activity_events").insert({
-    ticket_id: row.ticket_id,
-    event_type: "asset_uploaded",
-    meta: {
-      asset_id: row.id,
-      filename: row.filename,
-      source: clientId,
-    },
-  });
-  if (actError) {
-    c.get("logger").error(
-      { err: actError.message, assetId: row.id, ticketId: row.ticket_id },
-      "activity_event_write_failed"
+  // Idempotency: a retried confirm (network hiccup, double-click, etc.)
+  // must not produce duplicate `asset_uploaded` events. Check for an
+  // existing event keyed on `meta->>'asset_id'` before inserting. This
+  // still has a race under concurrent retries, but for the 3-user team
+  // using this app the pre-check closes the common case.
+  const { data: existing, error: existingError } = await supabase
+    .from("activity_events")
+    .select("id")
+    .eq("ticket_id", row.ticket_id)
+    .eq("event_type", "asset_uploaded")
+    .eq("meta->>asset_id", row.id)
+    .limit(1)
+    .maybeSingle();
+  if (existingError) {
+    c.get("logger").warn(
+      { err: existingError.message, assetId: row.id },
+      "activity_event_idempotency_check_failed"
     );
+    // Don't block the confirm on a failed pre-check — fall through and
+    // accept the (very unlikely) duplicate.
+  }
+  if (!existing) {
+    const { error: actError } = await supabase.from("activity_events").insert({
+      ticket_id: row.ticket_id,
+      event_type: "asset_uploaded",
+      meta: {
+        asset_id: row.id,
+        filename: row.filename,
+        source: clientId,
+      },
+    });
+    if (actError) {
+      c.get("logger").error(
+        { err: actError.message, assetId: row.id, ticketId: row.ticket_id },
+        "activity_event_write_failed"
+      );
+    }
   }
 
   return c.json({ data: null, error: null } satisfies ApiResponse<null>);
