@@ -11,7 +11,7 @@ import { useProjects } from "../hooks/useProjects";
 
 export function HomeView() {
   const navigate = useNavigate();
-  const { labels, createLabel, deleteLabel, getLabelUsage } = useLabels();
+  const { labels, createLabel } = useLabels();
   const {
     projects,
     loading: projectsLoading,
@@ -71,6 +71,9 @@ export function HomeView() {
     labelIds: string[];
   }) => {
     const res = await createProject(input);
+    if (res.data) {
+      navigate(`/projects/${res.data.id}`);
+    }
     return { error: res.error };
   };
 
@@ -84,31 +87,6 @@ export function HomeView() {
     return { error: res.error };
   };
 
-  const handleDeleteLabel = async (labelId: string) => {
-    const usageRes = await getLabelUsage(labelId);
-    const count = usageRes.data?.project_count ?? 0;
-    const label = labels.find((l) => l.id === labelId);
-    const name = label?.name ?? "this label";
-    const message =
-      count === 0
-        ? `Delete "${name}"? It is not applied to any projects.`
-        : `Delete "${name}"? It is applied to ${count} project${
-            count === 1 ? "" : "s"
-          } — those projects will stay, but the label will be removed from them.`;
-    if (!window.confirm(message)) return;
-    const res = await deleteLabel(labelId);
-    if (res.error) {
-      window.alert(`Could not delete label: ${res.error}`);
-      return;
-    }
-    setActiveFilterIds((prev) => {
-      if (!prev.has(labelId)) return prev;
-      const next = new Set(prev);
-      next.delete(labelId);
-      return next;
-    });
-  };
-
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       <Sidebar
@@ -117,7 +95,6 @@ export function HomeView() {
         onToggleFilter={toggleFilter}
         onClearFilters={clearFilters}
         onCreateLabel={handleCreateLabelFromSidebar}
-        onDeleteLabel={handleDeleteLabel}
       />
 
       <main
