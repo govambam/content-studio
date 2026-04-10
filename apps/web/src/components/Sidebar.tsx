@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
 import type { Label } from "@content-studio/shared";
 import { LabelChip } from "./LabelChip";
 import { NewLabelForm } from "./NewLabelForm";
+import { Wordmark } from "./Wordmark";
 
 interface SidebarProps {
   labels: Label[];
@@ -51,49 +51,8 @@ export function Sidebar({
       }}
     >
       <div style={{ padding: "0 20px", marginBottom: "24px" }}>
-        <div
-          style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: "15px",
-            fontWeight: 800,
-            color: "var(--accent-blue)",
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-          }}
-        >
-          Content Studio
-        </div>
-        <div
-          style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: "11px",
-            fontWeight: 400,
-            color: "var(--text-secondary)",
-            marginTop: "2px",
-          }}
-        >
-          by Macroscope
-        </div>
+        <Wordmark />
       </div>
-
-      <nav style={{ padding: "0 12px", marginBottom: "24px" }}>
-        <NavLink
-          to="/"
-          end
-          style={({ isActive }) => ({
-            display: "block",
-            padding: "8px 12px",
-            textDecoration: "none",
-            fontSize: "13px",
-            fontWeight: isActive ? 600 : 500,
-            color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-            background: isActive ? "var(--bg-surface)" : "transparent",
-            fontFamily: "var(--font-sans)",
-          })}
-        >
-          Home
-        </NavLink>
-      </nav>
 
       <div
         style={{

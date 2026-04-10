@@ -109,7 +109,7 @@ export function HomeView() {
         <header
           style={{
             height: "var(--header-height)",
-            background: "var(--bg-surface)",
+            background: "transparent",
             borderBottom: "1px solid var(--rule-faint)",
             padding: "0 24px",
             display: "flex",
