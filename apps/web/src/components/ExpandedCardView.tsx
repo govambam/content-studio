@@ -1,57 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { Card, ChatMessage, ContentType, Stage, ContextFile } from "@content-studio/shared";
+import type { Card, ContentType, Stage } from "@content-studio/shared";
 import { api } from "../lib/api";
 import { Breadcrumbs } from "./Breadcrumbs";
-import { SubItems } from "./SubItems";
-import { Attachments } from "./Attachments";
-import { ActivityThread } from "./ActivityThread";
-import { ArtifactModal } from "./ArtifactModal";
 import { TypeBadge } from "./TypeBadge";
 import { PropertiesSidebar } from "./PropertiesSidebar";
 
 interface ExpandedCardViewProps {
   cardId: string;
-  projectName: string;
-  projectId: string;
   onBack: () => void;
   onDelete?: () => void;
-  contextFiles: ContextFile[];
-  onUploadFile: (file: File, fileType: string) => Promise<unknown>;
-  onDeleteFile: (fileId: string) => Promise<boolean>;
 }
-
-interface ArtifactDetail {
-  id: string;
-  type: string;
-  title: string;
-  content: string;
-  status: string;
-}
-
-interface CardDetail extends Card {
-  artifacts: ArtifactDetail[];
-  messages: ChatMessage[];
-}
-
-const IDEA_QUICK_ACTIONS = [
-  { label: "Expand idea", prompt: "Expand on this idea. Add more detail about the target audience, the key visual moments, and why this would resonate with engineering leaders." },
-  { label: "Suggest variations", prompt: "Suggest 2-3 alternative angles or variations on this idea that we could also consider." },
-];
 
 export function ExpandedCardView({
   cardId,
-  projectName,
   onBack,
   onDelete,
-  contextFiles,
-  onUploadFile,
-  onDeleteFile,
 }: ExpandedCardViewProps) {
-  const [card, setCard] = useState<CardDetail | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sending, setSending] = useState(false);
-  const [generatingArtifact, setGeneratingArtifact] = useState<string | null>(null);
-  const [openArtifactType, setOpenArtifactType] = useState<string | null>(null);
+  const [card, setCard] = useState<Card | null>(null);
   const [editingSummary, setEditingSummary] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -62,24 +27,28 @@ export function ExpandedCardView({
   }, []);
 
   const fetchCard = useCallback(async () => {
-    const res = await api.get<CardDetail>(`/cards/${cardId}`);
+    const res = await api.get<Card>(`/cards/${cardId}`);
     if (res.data) {
       setCard(res.data);
-      setMessages(res.data.messages ?? []);
     }
   }, [cardId]);
 
-  useEffect(() => { fetchCard(); }, [fetchCard]);
+  useEffect(() => {
+    fetchCard();
+  }, [fetchCard]);
 
   const handleStageChange = async (newStage: Stage) => {
     const res = await api.put<Card>(`/cards/${cardId}`, { stage: newStage });
-    if (res.data) setCard((prev) => prev ? { ...prev, stage: res.data!.stage } : prev);
+    if (res.data) setCard((prev) => (prev ? { ...prev, stage: res.data!.stage } : prev));
   };
 
   const handleDeleteCard = async () => {
-    if (!confirm("Delete this card and all its content?")) return;
+    if (!confirm("Delete this card?")) return;
     const res = await api.del(`/cards/${cardId}`);
-    if (!res.error) { onDelete?.(); onBack(); }
+    if (!res.error) {
+      onDelete?.();
+      onBack();
+    }
   };
 
   const handleSummaryChange = (value: string) => {
@@ -88,129 +57,86 @@ export function ExpandedCardView({
     saveTimerRef.current = setTimeout(async () => {
       saveTimerRef.current = null;
       await api.put(`/cards/${cardId}`, { summary: value });
-      setCard((prev) => prev ? { ...prev, summary: value } : prev);
+      setCard((prev) => (prev ? { ...prev, summary: value } : prev));
     }, 1000);
   };
 
   const handleSummaryBlur = async () => {
     if (editingSummary === null) return;
-    // Flush any pending debounced save
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
       await api.put(`/cards/${cardId}`, { summary: editingSummary });
-      setCard((prev) => prev ? { ...prev, summary: editingSummary } : prev);
+      setCard((prev) => (prev ? { ...prev, summary: editingSummary } : prev));
     }
-    // Always clear editing state so future renders use the saved value
     setEditingSummary(null);
-  };
-
-  const handleGenerateArtifact = async (artifactType: string) => {
-    setGeneratingArtifact(artifactType);
-    try {
-      const res = await api.post<ArtifactDetail>(
-        `/cards/${cardId}/generate-artifact`,
-        { type: artifactType }
-      );
-      if (res.data) {
-        await fetchCard();
-        setOpenArtifactType(artifactType);
-      }
-    } finally {
-      setGeneratingArtifact(null);
-    }
-  };
-
-  const handleRegenerateArtifact = async () => {
-    if (!openArtifactType) return;
-    const res = await api.post<ArtifactDetail>(
-      `/cards/${cardId}/generate-artifact`,
-      { type: openArtifactType }
-    );
-    if (res.data) {
-      await fetchCard();
-    }
-  };
-
-  const handleSendMessage = async (content: string) => {
-    setSending(true);
-    const tempMsg: ChatMessage = {
-      id: `temp-${Date.now()}`, card_id: cardId, artifact_id: null,
-      role: "user", content, metadata: null, change_summary: null,
-      created_at: new Date().toISOString(), user_id: null,
-    };
-    setMessages((prev) => [...prev, tempMsg]);
-
-    try {
-      const res = await api.post<{
-        user_message: ChatMessage;
-        assistant_message: ChatMessage;
-        updated_content: string | null;
-      }>(`/cards/${cardId}/chat`, { content, active_tab: "details" });
-
-      if (res.data) {
-        setMessages((prev) => [
-          ...prev.filter((m) => m.id !== tempMsg.id),
-          res.data!.user_message,
-          res.data!.assistant_message,
-        ]);
-        if (res.data.updated_content) {
-          setCard((prev) => prev ? { ...prev, summary: res.data!.updated_content! } : prev);
-        }
-      } else {
-        throw new Error(res.error ?? "Unknown error");
-      }
-    } catch {
-      setMessages((prev) => [...prev, {
-        id: `error-${Date.now()}`, card_id: cardId, artifact_id: null,
-        role: "assistant", content: "Claude encountered an error processing this request.",
-        metadata: null, change_summary: null, created_at: new Date().toISOString(), user_id: null,
-      }]);
-    } finally {
-      setSending(false);
-    }
   };
 
   if (!card) {
     return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-sans)", fontSize: "14px", color: "var(--text-muted)" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "var(--font-sans)",
+          fontSize: "14px",
+          color: "var(--text-muted)",
+        }}
+      >
         Loading...
       </div>
     );
   }
 
   const summaryValue = editingSummary ?? card.summary;
-  const openArtifact = openArtifactType
-    ? card.artifacts.find((a) => a.type === openArtifactType)
-    : null;
 
   return (
     <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
       {/* Content column */}
       <div style={{ flex: 1, overflowY: "auto", padding: "var(--page-padding)" }}>
-        <Breadcrumbs segments={[
-          { label: "Board", onClick: onBack },
-          { label: card.title },
-        ]} />
+        <Breadcrumbs
+          segments={[{ label: "Board", onClick: onBack }, { label: card.title }]}
+        />
 
         {/* Card header */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
-          <h1 style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-sans)", margin: 0 }}>
+          <h1
+            style={{
+              fontSize: "18px",
+              fontWeight: 700,
+              letterSpacing: "-0.01em",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              margin: 0,
+            }}
+          >
             {card.title}
           </h1>
           <TypeBadge type={card.content_type as ContentType} />
         </div>
 
-        {/* Editable idea summary */}
+        {/* Editable summary */}
         <div style={{ marginBottom: "24px" }}>
-          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: "var(--text-secondary)", marginBottom: "8px", fontFamily: "var(--font-sans)" }}>
-            Idea Summary
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase" as const,
+              color: "var(--text-secondary)",
+              marginBottom: "8px",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            Summary
           </div>
           <textarea
             value={summaryValue}
             onChange={(e) => handleSummaryChange(e.target.value)}
             onBlur={handleSummaryBlur}
-            placeholder="Describe the idea..."
+            placeholder="Describe the card..."
             style={{
               width: "100%",
               minHeight: "80px",
@@ -229,28 +155,6 @@ export function ExpandedCardView({
             onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
           />
         </div>
-
-        <SubItems
-          artifacts={card.artifacts}
-          onNavigate={(type) => setOpenArtifactType(type)}
-          onGenerate={handleGenerateArtifact}
-          generating={generatingArtifact}
-        />
-
-        <Attachments
-          files={contextFiles}
-          onUpload={onUploadFile}
-          onDelete={onDeleteFile}
-        />
-
-        {/* Activity thread */}
-        <ActivityThread
-          messages={messages}
-          projectName={projectName}
-          onSendMessage={handleSendMessage}
-          sending={sending}
-          quickActions={IDEA_QUICK_ACTIONS}
-        />
       </div>
 
       {/* Properties sidebar */}
@@ -262,16 +166,6 @@ export function ExpandedCardView({
         onStageChange={handleStageChange}
         onDelete={handleDeleteCard}
       />
-
-      {/* Artifact modal */}
-      {openArtifact && (
-        <ArtifactModal
-          artifact={openArtifact}
-          cardTitle={card.title}
-          onClose={() => setOpenArtifactType(null)}
-          onRegenerate={handleRegenerateArtifact}
-        />
-      )}
     </div>
   );
 }
