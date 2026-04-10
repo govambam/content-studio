@@ -208,6 +208,10 @@ function KanbanColumn<T extends KanbanItem>({
   renderItem,
 }: KanbanColumnProps<T>) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  // Stable reference for SortableContext — derived only from ids, so it
+  // only changes when the item order or set actually changes, not on
+  // unrelated parent re-renders.
+  const sortableIds = useMemo(() => items.map((i) => i.id), [items]);
   return (
     <div
       ref={setNodeRef}
@@ -253,7 +257,7 @@ function KanbanColumn<T extends KanbanItem>({
         </span>
       </div>
       <SortableContext
-        items={items.map((i) => i.id)}
+        items={sortableIds}
         strategy={verticalListSortingStrategy}
       >
         <div
@@ -261,6 +265,18 @@ function KanbanColumn<T extends KanbanItem>({
             display: "flex",
             flexDirection: "column",
             gap: "8px",
+            flex: 1,
+            overflowY: "auto",
+            // Tell the browser vertical scroll is native. Keeps wheel /
+            // touch-scroll on the compositor thread and avoids @dnd-kit
+            // pointer sensors competing with the scroll gesture.
+            touchAction: "pan-y",
+            // Promote to its own layer so scroll doesn't repaint
+            // siblings.
+            willChange: "scroll-position",
+            // Minimum column body height so an empty column still has
+            // space for drops.
+            minHeight: 0,
           }}
         >
           {items.map((item) => (

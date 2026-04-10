@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Ticket } from "@content-studio/shared";
 
 interface TicketCardProps {
@@ -7,7 +8,7 @@ interface TicketCardProps {
   commentCount?: number;
 }
 
-export function TicketCard({
+export const TicketCard = memo(function TicketCard({
   ticket,
   onClick,
   assetCount = 0,
@@ -17,22 +18,14 @@ export function TicketCard({
   return (
     <div
       onClick={onClick}
+      className="cs-hoverable-card"
       style={{
         padding: "12px",
-        background: "var(--bg-surface)",
-        border: "1px solid var(--rule-faint)",
         borderRadius: "0",
-        cursor: "pointer",
         display: "flex",
         flexDirection: "column",
         gap: "8px",
         fontFamily: "var(--font-sans)",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--rule-strong)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "var(--rule-faint)";
       }}
     >
       <div
@@ -79,4 +72,4 @@ export function TicketCard({
       )}
     </div>
   );
-}
+});

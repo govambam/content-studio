@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Project } from "@content-studio/shared";
 import { LabelChip } from "./LabelChip";
 
@@ -6,7 +7,13 @@ interface ProjectCardProps {
   onClick: () => void;
 }
 
-export function ProjectCard({ project, onClick }: ProjectCardProps) {
+// React.memo so a card only re-renders when its own project reference
+// changes. Without this, every parent re-render (e.g. the DataContext
+// updating for any reason) would rebuild every card on the board.
+export const ProjectCard = memo(function ProjectCard({
+  project,
+  onClick,
+}: ProjectCardProps) {
   const descriptionPreview = project.description.trim().slice(0, 60);
   const doneCount = project.ticket_counts.done;
   const totalCount =
@@ -18,22 +25,14 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
   return (
     <div
       onClick={onClick}
+      className="cs-hoverable-card"
       style={{
         padding: "12px",
-        background: "var(--bg-surface)",
-        border: "1px solid var(--rule-faint)",
         borderRadius: "0",
-        cursor: "pointer",
         display: "flex",
         flexDirection: "column",
         gap: "8px",
         fontFamily: "var(--font-sans)",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--rule-strong)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "var(--rule-faint)";
       }}
     >
       <div
@@ -85,4 +84,4 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
       </div>
     </div>
   );
-}
+});
