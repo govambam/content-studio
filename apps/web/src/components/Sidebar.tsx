@@ -17,7 +17,8 @@ export function Sidebar({
     <aside
       style={{
         width: "var(--sidebar-width)",
-        background: "var(--bg-sidebar)",
+        background: "var(--bg-primary)",
+        borderRight: "1px solid var(--rule-strong)",
         padding: "20px 0",
         flexShrink: 0,
         display: "flex",
@@ -44,7 +45,7 @@ export function Sidebar({
             fontFamily: "var(--font-sans)",
             fontSize: "11px",
             fontWeight: 400,
-            color: "#64748B",
+            color: "var(--text-secondary)",
             marginTop: "2px",
           }}
         >
@@ -59,7 +60,7 @@ export function Sidebar({
           marginBottom: "6px",
           fontSize: "10px",
           fontWeight: 600,
-          color: "#475569",
+          color: "var(--text-secondary)",
           letterSpacing: "0.08em",
           textTransform: "uppercase" as const,
           fontFamily: "var(--font-sans)",
@@ -90,9 +91,15 @@ export function Sidebar({
                 padding: "10px 8px",
                 borderRadius: "6px",
                 border: "none",
-                background: isActive ? "#1E293B" : "transparent",
+                background: isActive ? "var(--bg-surface)" : "transparent",
                 textAlign: "left",
                 fontFamily: "var(--font-sans)",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.background = "var(--bg-secondary)";
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.background = "transparent";
               }}
             >
               {/* Project icon */}
@@ -120,7 +127,7 @@ export function Sidebar({
                   style={{
                     fontSize: "12px",
                     fontWeight: isActive ? 600 : 400,
-                    color: isActive ? "#FFFFFF" : "#94A3B8",
+                    color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -143,11 +150,11 @@ export function Sidebar({
             width: "100%",
             padding: "10px 8px",
             marginTop: "4px",
-            border: "1px dashed #334155",
+            border: "1px dashed var(--rule-faint)",
             borderRadius: "0",
             background: "transparent",
             fontSize: "12px",
-            color: "#475569",
+            color: "var(--text-secondary)",
             fontFamily: "var(--font-sans)",
           }}
         >
