@@ -539,7 +539,25 @@ export function ProjectDetailView() {
               />
             )}
             onItemMoved={handleItemMoved}
-            emptyMessage="This project has no tickets yet. Break down the work by clicking + New Ticket."
+            emptyMessage="No tickets yet. Break down the work by creating your first ticket."
+            emptyAction={
+              <button
+                onClick={() => setShowNewTicket(true)}
+                style={{
+                  background: "var(--text-primary)",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: "0",
+                  padding: "8px 16px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  fontFamily: "var(--font-sans)",
+                  cursor: "pointer",
+                }}
+              >
+                + New Ticket
+              </button>
+            }
           />
         )}
       </main>
