@@ -1,9 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { ENV } from "./env";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+// ENV.validateEnv has already thrown at boot if these are missing, so the
+// client is never null at runtime.
+export const supabase = createClient(ENV.supabaseUrl, ENV.supabaseAnonKey);

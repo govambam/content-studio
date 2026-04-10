@@ -8,10 +8,13 @@ import comments from "./routes/comments.js";
 import assets from "./routes/assets.js";
 import { logger } from "./lib/logger.js";
 import { requestContext } from "./middleware/requestContext.js";
+import { securityHeaders } from "./middleware/securityHeaders.js";
+import { rateLimit } from "./middleware/rateLimit.js";
 
 const app = new Hono();
 
 app.use("*", requestContext);
+app.use("*", securityHeaders);
 
 app.use(
   "*",
@@ -21,6 +24,8 @@ app.use(
     exposeHeaders: ["x-request-id"],
   })
 );
+
+app.use("*", rateLimit);
 
 app.get("/api/health", (c) => {
   return c.json({
