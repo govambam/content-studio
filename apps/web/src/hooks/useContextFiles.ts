@@ -41,6 +41,7 @@ export function useContextFiles(projectId: string | null) {
     fileType: string
   ): Promise<ContextFile | null> => {
     if (!projectId) return null;
+    const uploadingFor = projectId;
 
     try {
       const formData = new FormData();
@@ -53,7 +54,7 @@ export function useContextFiles(projectId: string | null) {
       );
 
       const json = await res.json();
-      if (json.data) {
+      if (json.data && currentProjectRef.current === uploadingFor) {
         setFiles((prev) => [json.data, ...prev]);
         return json.data;
       }
