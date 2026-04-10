@@ -105,6 +105,19 @@ function App() {
                 >
                   {activeProject.name}
                 </div>
+
+                {cards.length > 0 && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 400,
+                      color: "var(--text-muted)",
+                      fontFamily: "var(--font-sans)",
+                    }}
+                  >
+                    {cards.length} ideas · {cards.filter((c) => c.stage === "considering").length} considering · {cards.filter((c) => c.stage === "in_production").length} in production
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", gap: "8px" }}>
