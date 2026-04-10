@@ -3,7 +3,6 @@ import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
 import { KanbanBoard } from "./components/KanbanBoard";
 import { ExpandedCardView } from "./components/ExpandedCardView";
-import { ContextPanel } from "./components/ContextPanel";
 import { useProjects } from "./hooks/useProjects";
 import { useCards } from "./hooks/useCards";
 import { useContextFiles } from "./hooks/useContextFiles";
@@ -14,18 +13,16 @@ function App() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
-  const [showContext, setShowContext] = useState(false);
   const { cards, refetch: refetchCards } = useCards(activeProjectId);
   const { files: contextFiles, uploadFile, deleteFile } = useContextFiles(activeProjectId);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
-  // Escape key closes panels and modals
+  // Escape key closes modals and views
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (showNewProject) setShowNewProject(false);
-        else if (showContext) setShowContext(false);
         else if (expandedCardId) {
           setExpandedCardId(null);
           refetchCards();
@@ -34,7 +31,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showNewProject, showContext, expandedCardId, refetchCards]);
+  }, [showNewProject, expandedCardId, refetchCards]);
 
   const [generating, setGenerating] = useState(false);
 
@@ -42,8 +39,6 @@ function App() {
     if (!activeProject || generating) return;
     setGenerating(true);
     await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
-    // Realtime subscription will auto-refresh cards when they're created.
-    // Wait a bit then reset the generating state.
     await new Promise((r) => setTimeout(r, 10000));
     await refetchCards();
     setGenerating(false);
@@ -57,7 +52,6 @@ function App() {
         onSelectProject={(id) => {
           setActiveProjectId(id);
           setExpandedCardId(null);
-          setShowContext(false);
         }}
         onNewProject={() => setShowNewProject(true)}
       />
@@ -69,7 +63,6 @@ function App() {
           flexDirection: "column",
           background: "var(--bg-primary)",
           overflow: "hidden",
-          position: "relative",
         }}
       >
         {activeProject ? (
@@ -87,10 +80,7 @@ function App() {
                 flexShrink: 0,
               }}
             >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "12px" }}
-              >
-                {/* Project icon */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div
                   style={{
                     width: "36px",
@@ -108,60 +98,21 @@ function App() {
                 >
                   {activeProject.icon}
                 </div>
-
-                <div
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    letterSpacing: "-0.01em",
-                    color: "var(--text-primary)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
+                <div style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>
                   {activeProject.name}
                 </div>
-
                 {cards.length > 0 && (
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 400,
-                      color: "var(--text-muted)",
-                      fontFamily: "var(--font-sans)",
-                    }}
-                  >
+                  <div style={{ fontSize: "12px", fontWeight: 400, color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
                     {cards.length} ideas · {cards.filter((c) => c.stage === "considering").length} considering · {cards.filter((c) => c.stage === "in_production").length} in production
                   </div>
                 )}
               </div>
-
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
-                  onClick={() => setShowContext(!showContext)}
                   style={{
-                    background: showContext ? "var(--bg-secondary)" : "var(--bg-surface)",
-                    color: "var(--text-secondary)",
-                    border: "1px solid var(--rule-faint)",
-                    borderRadius: "0",
-                    padding: "8px 14px",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                  Context ({contextFiles.length})
-                </button>
-                <button
-                  style={{
-                    background: "var(--text-primary)",
-                    color: "#FFFFFF",
-                    border: "none",
-                    borderRadius: "0",
-                    padding: "8px 16px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    fontFamily: "var(--font-sans)",
-                    opacity: generating ? 0.5 : 1,
+                    background: "var(--text-primary)", color: "#FFFFFF", border: "none",
+                    borderRadius: "0", padding: "8px 16px", fontSize: "12px", fontWeight: 600,
+                    fontFamily: "var(--font-sans)", opacity: generating ? 0.5 : 1,
                   }}
                   onClick={handleGenerateIdeas}
                   disabled={generating}
@@ -176,11 +127,15 @@ function App() {
               <ExpandedCardView
                 cardId={expandedCardId}
                 projectName={activeProject.name}
+                projectId={activeProject.id}
                 onBack={() => {
                   setExpandedCardId(null);
                   refetchCards();
                 }}
                 onDelete={refetchCards}
+                contextFiles={contextFiles}
+                onUploadFile={uploadFile}
+                onDeleteFile={deleteFile}
               />
             ) : (
               <KanbanBoard
@@ -189,64 +144,15 @@ function App() {
                 onGenerateMore={handleGenerateIdeas}
               />
             )}
-
-            {/* Context panel slide-over */}
-            {showContext && (
-              <ContextPanel
-                files={contextFiles}
-                onUpload={uploadFile}
-                onDelete={deleteFile}
-                onClose={() => setShowContext(false)}
-              />
-            )}
           </>
         ) : (
-          /* Empty state */
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "var(--page-padding)",
-            }}
-          >
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "var(--page-padding)" }}>
             {loading ? (
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 400,
-                  color: "var(--text-muted)",
-                  fontFamily: "var(--font-sans)",
-                }}
-              >
-                Loading...
-              </div>
+              <div style={{ fontSize: "14px", fontWeight: 400, color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Loading...</div>
             ) : (
               <>
-                <div
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    letterSpacing: "-0.01em",
-                    color: "var(--text-primary)",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                  Content Studio
-                </div>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 400,
-                    color: "var(--text-secondary)",
-                    marginTop: "8px",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                  Select or create a project to get started.
-                </div>
+                <div style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>Content Studio</div>
+                <div style={{ fontSize: "14px", fontWeight: 400, color: "var(--text-secondary)", marginTop: "8px", fontFamily: "var(--font-sans)" }}>Select or create a project to get started.</div>
               </>
             )}
           </div>
@@ -258,9 +164,7 @@ function App() {
           onClose={() => setShowNewProject(false)}
           onCreate={async (data) => {
             const project = await createProject(data);
-            if (project) {
-              setActiveProjectId(project.id);
-            }
+            if (project) setActiveProjectId(project.id);
           }}
         />
       )}

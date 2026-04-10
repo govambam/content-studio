@@ -5,7 +5,7 @@ export type ContentType = "short" | "long";
 export type ArtifactType = "demo-flow" | "script";
 export type ArtifactStatus = "not-started" | "draft" | "complete";
 export type FileType = "docs" | "post" | "ideas" | "other";
-export type ChatRole = "user" | "assistant";
+export type ChatRole = "user" | "assistant" | "system";
 export type CardCreator = "ai" | "user";
 
 export interface Project {
@@ -62,6 +62,7 @@ export interface ChatMessage {
   role: ChatRole;
   content: string;
   metadata: Record<string, unknown> | null;
+  change_summary: string | null;
   created_at: string;
   user_id: string | null;
 }
