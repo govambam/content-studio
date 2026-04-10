@@ -7,12 +7,17 @@ async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
+  // Per-request correlation id. Threaded as `x-request-id` so the Hono
+  // middleware echoes it back, which lets Sentry/BigQuery later stitch
+  // a client breadcrumb to the server log line.
+  const requestId = crypto.randomUUID();
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
         "x-client-id": CLIENT_ID,
+        "x-request-id": requestId,
         ...options?.headers,
       },
     });

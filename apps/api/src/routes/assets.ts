@@ -152,9 +152,9 @@ assets.post("/tickets/:ticketId/assets", async (c) => {
     },
   });
   if (actError) {
-    console.error(
-      `failed to write asset_uploaded activity for asset ${assetRow.id}:`,
-      actError.message
+    c.get("logger").error(
+      { err: actError.message, assetId: assetRow.id, ticketId },
+      "activity_event_write_failed"
     );
   }
 
@@ -247,9 +247,9 @@ assets.delete("/assets/:id", async (c) => {
     .from(BUCKET)
     .remove([row.storage_path]);
   if (storageError) {
-    console.error(
-      `failed to remove storage object ${row.storage_path}:`,
-      storageError.message
+    c.get("logger").error(
+      { err: storageError.message, storagePath: row.storage_path },
+      "storage_object_remove_failed"
     );
   }
 
@@ -270,9 +270,9 @@ assets.delete("/assets/:id", async (c) => {
     meta: { filename: row.filename, source: clientId },
   });
   if (actError) {
-    console.error(
-      `failed to write asset_deleted activity for asset ${id}:`,
-      actError.message
+    c.get("logger").error(
+      { err: actError.message, assetId: id, ticketId: row.ticket_id },
+      "activity_event_write_failed"
     );
   }
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
+import { logger } from "../lib/logger";
 
 interface MarkdownEditorProps {
   initialValue: string;
@@ -49,7 +50,9 @@ export function MarkdownEditor({
       await onSave(pending);
       savedValueRef.current = pending;
     } catch (err) {
-      console.error("markdown autosave failed", err);
+      logger.error("markdown_autosave_failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
     }
   };
 

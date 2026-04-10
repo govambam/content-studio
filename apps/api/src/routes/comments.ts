@@ -79,9 +79,9 @@ comments.post("/tickets/:ticketId/comments", async (c) => {
     meta: { comment_id: data.id, source: clientId },
   });
   if (actError) {
-    console.error(
-      `failed to write comment_added activity for comment ${data.id}:`,
-      actError.message
+    c.get("logger").error(
+      { err: actError.message, commentId: data.id, ticketId },
+      "activity_event_write_failed"
     );
   }
 

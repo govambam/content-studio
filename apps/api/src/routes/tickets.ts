@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
+import { logger } from "../lib/logger.js";
 import type {
   ActivityEventType,
   ActivityFeedItem,
@@ -15,7 +16,8 @@ async function writeActivityEvent(
   ticketId: string,
   eventType: ActivityEventType,
   meta: Record<string, unknown>,
-  clientId: string | null
+  clientId: string | null,
+  log = logger
 ): Promise<void> {
   const { error } = await supabase.from("activity_events").insert({
     ticket_id: ticketId,
@@ -23,9 +25,9 @@ async function writeActivityEvent(
     meta: { ...meta, source: clientId },
   });
   if (error) {
-    console.error(
-      `failed to write activity event ${eventType} for ticket ${ticketId}:`,
-      error.message
+    log.error(
+      { err: error.message, ticketId, eventType },
+      "activity_event_write_failed"
     );
   }
 }
@@ -167,7 +169,7 @@ tickets.post("/projects/:projectId/tickets", async (c) => {
     );
   }
 
-  await writeActivityEvent(data.id, "ticket_created", {}, clientId);
+  await writeActivityEvent(data.id, "ticket_created", {}, clientId, c.get("logger"));
 
   return c.json({ data, error: null } satisfies ApiResponse<Ticket>, 201);
 });
@@ -269,23 +271,26 @@ tickets.put("/tickets/:id", async (c) => {
   // changes are intentionally NOT recorded — drag-and-drop would flood
   // the feed with every reorder. The spec records status changes for
   // both the drag and the dropdown cases, but not pure reorders.
+  const log = c.get("logger");
   if ("title" in patch && patch.title !== prior.title) {
     await writeActivityEvent(
       id,
       "title_changed",
       { from: prior.title, to: patch.title },
-      clientId
+      clientId,
+      log
     );
   }
   if ("description" in patch && patch.description !== prior.description) {
-    await writeActivityEvent(id, "description_changed", {}, clientId);
+    await writeActivityEvent(id, "description_changed", {}, clientId, log);
   }
   if ("status" in patch && patch.status !== prior.status) {
     await writeActivityEvent(
       id,
       "status_changed",
       { from: prior.status, to: patch.status },
-      clientId
+      clientId,
+      log
     );
   }
 
