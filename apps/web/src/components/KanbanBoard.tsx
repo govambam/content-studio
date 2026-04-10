@@ -1,6 +1,7 @@
 import type { Card, Stage } from "@content-studio/shared";
 import { KanbanCard } from "./KanbanCard";
 import { StageDot, STAGE_CONFIG } from "./StageBadge";
+import { SkeletonCard } from "./SkeletonCard";
 
 interface CardWithArtifacts extends Card {
   artifacts: Array<{ id: string; type: string; status: string }>;
@@ -9,6 +10,7 @@ interface CardWithArtifacts extends Card {
 interface KanbanBoardProps {
   cards: CardWithArtifacts[];
   onCardClick: (cardId: string) => void;
+  generating?: boolean;
 }
 
 const STAGES: Stage[] = ["unreviewed", "considering", "in_production", "published"];
@@ -20,7 +22,7 @@ const STAGE_LABELS: Record<Stage, string> = {
   published: "PUBLISHED",
 };
 
-export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
+export function KanbanBoard({ cards, onCardClick, generating = false }: KanbanBoardProps) {
   const cardsByStage = STAGES.reduce(
     (acc, stage) => {
       acc[stage] = cards.filter((c) => c.stage === stage);
@@ -29,7 +31,7 @@ export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
     {} as Record<Stage, CardWithArtifacts[]>
   );
 
-  if (cards.length === 0) {
+  if (cards.length === 0 && !generating) {
     return (
       <div
         style={{
@@ -107,6 +109,7 @@ export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
               }}
             >
               {cardsByStage[stage].length}
+              {stage === "unreviewed" && generating && " · generating..."}
             </span>
           </div>
 
@@ -128,6 +131,11 @@ export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
               />
             ))}
 
+            {/* Skeleton cards during idea generation */}
+            {stage === "unreviewed" && generating &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonCard key={`skeleton-${i}`} />
+              ))}
           </div>
         </div>
       ))}

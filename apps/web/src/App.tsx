@@ -17,6 +17,7 @@ function App() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [showNewIdea, setShowNewIdea] = useState(false);
   const [showContext, setShowContext] = useState(false);
+  const [generatingIdeas, setGeneratingIdeas] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const { cards, refetch: refetchCards } = useCards(activeProjectId);
   const { files: contextFiles, uploadFile, deleteFile } = useContextFiles(activeProjectId);
@@ -55,9 +56,20 @@ function App() {
 
   const handleGenerateIdeas = async () => {
     if (!activeProject) return;
-    await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
-    await new Promise((r) => setTimeout(r, 10000));
-    await refetchCards();
+    setGeneratingIdeas(true);
+    try {
+      await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
+      // Poll for cards until they appear (Realtime should trigger it sooner)
+      const deadline = Date.now() + 60000; // 60s max
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const res = await api.get<Card[]>(`/projects/${activeProject.id}/cards`);
+        if (res.data && res.data.length > 0) break;
+      }
+      await refetchCards();
+    } finally {
+      setGeneratingIdeas(false);
+    }
   };
 
   return (
@@ -174,6 +186,7 @@ function App() {
               <KanbanBoard
                 cards={cards}
                 onCardClick={setExpandedCardId}
+                generating={generatingIdeas}
               />
             )}
           </>
