@@ -28,23 +28,20 @@ begin
     return;
   end if;
 
-  -- Use a single UPDATE ... FROM unnest(...) so every row in the column
-  -- is rewritten in one statement. The row's new sort_order is its
-  -- 0-indexed position in the provided array. We also constrain the
-  -- update to the given project so a stray client cannot move tickets
-  -- into a project they did not name.
+  -- Use a single UPDATE ... FROM unnest(...) WITH ORDINALITY so every
+  -- row in the column is rewritten in one statement and the array's
+  -- ordinal is the sort_order. `WITH ORDINALITY` is the only ordering
+  -- guarantee Postgres gives for unnest — a bare `row_number() over ()`
+  -- has no ORDER BY and the planner is free to assign positions in any
+  -- order. We subtract 1 so the first element stays at sort_order 0 to
+  -- match the rest of the code path.
   update public.tickets as t
   set
     status = p_status,
-    sort_order = ord.pos,
+    sort_order = (ord.ordinality - 1)::int,
     updated_by_client = p_client_id,
     updated_at = now()
-  from (
-    select
-      id,
-      (row_number() over () - 1)::int as pos
-    from unnest(p_ticket_ids) as id
-  ) as ord
+  from unnest(p_ticket_ids) with ordinality as ord(id, ordinality)
   where t.id = ord.id
     and t.project_id = p_project_id;
 end;
