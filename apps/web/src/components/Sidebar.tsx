@@ -35,10 +35,11 @@ export function Sidebar({
             fontSize: "15px",
             fontWeight: 800,
             color: "var(--accent-blue)",
-            letterSpacing: "-0.02em",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase" as const,
           }}
         >
-          Macroscope
+          Content Studio
         </div>
         <div
           style={{
@@ -49,7 +50,7 @@ export function Sidebar({
             marginTop: "2px",
           }}
         >
-          Content Studio
+          by Macroscope
         </div>
       </div>
 
