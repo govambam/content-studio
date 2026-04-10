@@ -30,6 +30,18 @@ input, textarea, select {
   border-radius: 0;
 }
 
+/*
+ * A11y baseline: several inline `outline: none` sites suppress the
+ * default focus ring to keep the brutalist look clean on mouse focus.
+ * That also kills keyboard-only focus visibility. Restore a visible
+ * ring for `:focus-visible` (keyboard only) with `!important` so it
+ * wins against inline styles. Mouse focus remains ring-free.
+ */
+:focus-visible {
+  outline: 2px solid var(--accent-blue) !important;
+  outline-offset: 2px !important;
+}
+
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
