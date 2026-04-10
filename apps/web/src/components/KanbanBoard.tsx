@@ -30,6 +30,52 @@ export function KanbanBoard({ cards, onCardClick, onGenerateMore }: KanbanBoardP
     {} as Record<Stage, CardWithArtifacts[]>
   );
 
+  if (cards.length === 0) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "var(--page-padding)",
+          gap: "8px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "14px",
+            fontWeight: 400,
+            color: "var(--text-muted)",
+            fontFamily: "var(--font-sans)",
+          }}
+        >
+          No ideas yet. Upload context files and generate ideas to get started.
+        </div>
+        {onGenerateMore && (
+          <button
+            onClick={onGenerateMore}
+            style={{
+              background: "var(--text-primary)",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: "0",
+              padding: "8px 16px",
+              fontSize: "12px",
+              fontWeight: 600,
+              fontFamily: "var(--font-sans)",
+              cursor: "pointer",
+              marginTop: "8px",
+            }}
+          >
+            Generate Ideas
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
