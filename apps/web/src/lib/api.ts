@@ -1,4 +1,5 @@
 import type { ApiResponse } from "@content-studio/shared";
+import { CLIENT_ID } from "./clientId";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -11,6 +12,7 @@ async function request<T>(
       ...options,
       headers: {
         "Content-Type": "application/json",
+        "x-client-id": CLIENT_ID,
         ...options?.headers,
       },
     });
@@ -39,6 +41,5 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  del: <T>(path: string) =>
-    request<T>(path, { method: "DELETE" }),
+  del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

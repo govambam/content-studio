@@ -1,55 +1,70 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Label } from "@content-studio/shared";
+import { LabelChip } from "./LabelChip";
+import { NewLabelForm } from "./NewLabelForm";
 
 interface NewProjectModalProps {
+  labels: Label[];
   onClose: () => void;
-  onCreate: (data: {
-    name: string;
-    slug: string;
-    icon?: string;
-    color?: string;
-  }) => Promise<unknown>;
+  onCreate: (input: {
+    title: string;
+    description?: string;
+    labelIds: string[];
+  }) => Promise<void>;
+  onCreateLabel: (name: string, color: string) => Promise<Label | null>;
 }
 
-const PROJECT_COLORS = [
-  "#1E3AFF",
-  "#8B5CF6",
-  "#F59E0B",
-  "#10B981",
-  "#EF4444",
-  "#EC4899",
-  "#06B6D4",
-  "#F97316",
-];
-
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
-  const [name, setName] = useState("");
-  const [color, setColor] = useState(PROJECT_COLORS[0]);
+export function NewProjectModal({
+  labels,
+  onClose,
+  onCreate,
+  onCreateLabel,
+}: NewProjectModalProps) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedLabelIds, setSelectedLabelIds] = useState<Set<string>>(new Set());
+  const [showNewLabel, setShowNewLabel] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const slug = toSlug(name);
-  const icon = name
-    .split(/\s+/)
-    .map((w) => w[0] ?? "")
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  const toggleLabel = (id: string) => {
+    setSelectedLabelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !slug) return;
+    const trimmed = title.trim();
+    if (!trimmed || submitting) return;
     setSubmitting(true);
     try {
-      await onCreate({ name: name.trim(), slug, icon, color });
+      await onCreate({
+        title: trimmed,
+        description: description.trim() || undefined,
+        labelIds: Array.from(selectedLabelIds),
+      });
       onClose();
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleInlineLabelCreate = async (name: string, color: string) => {
+    const created = await onCreateLabel(name, color);
+    if (created) {
+      setSelectedLabelIds((prev) => new Set(prev).add(created.id));
+    }
+    setShowNewLabel(false);
   };
 
   return (
@@ -71,8 +86,10 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
           border: "1px solid var(--rule-strong)",
           borderRadius: "0",
           padding: "24px",
-          width: "400px",
+          width: "480px",
           maxWidth: "90vw",
+          maxHeight: "90vh",
+          overflowY: "auto",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -89,7 +106,6 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
           New Project
         </div>
 
-        {/* Name input */}
         <div style={{ marginBottom: "16px" }}>
           <label
             style={{
@@ -97,20 +113,59 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
               fontSize: "11px",
               fontWeight: 700,
               letterSpacing: "0.2em",
-              textTransform: "uppercase" as const,
+              textTransform: "uppercase",
               color: "var(--text-secondary)",
               marginBottom: "8px",
               fontFamily: "var(--font-sans)",
             }}
           >
-            Project Name
+            Title
           </label>
           <input
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Custom Reviews"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Custom eligibility rules walkthrough"
             autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSubmit();
+            }}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid var(--rule-faint)",
+              borderRadius: "0",
+              fontFamily: "var(--font-sans)",
+              fontSize: "13px",
+              background: "var(--bg-surface)",
+              color: "var(--text-primary)",
+              outline: "none",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--rule-faint)")}
+          />
+        </div>
+
+        <div style={{ marginBottom: "16px" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--text-secondary)",
+              marginBottom: "8px",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional — what is this video about?"
+            rows={4}
             style={{
               width: "100%",
               padding: "8px 12px",
@@ -119,35 +174,15 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
               fontFamily: "var(--font-sans)",
               fontSize: "12px",
               background: "var(--bg-surface)",
+              color: "var(--text-primary)",
               outline: "none",
+              resize: "vertical",
             }}
-            onFocus={(e) =>
-              (e.target.style.borderColor = "var(--rule-strong)")
-            }
-            onBlur={(e) =>
-              (e.target.style.borderColor = "var(--rule-faint)")
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSubmit();
-            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--rule-faint)")}
           />
         </div>
 
-        {/* Slug preview */}
-        {slug && (
-          <div
-            style={{
-              fontSize: "11px",
-              fontFamily: "var(--font-mono)",
-              color: "var(--text-muted)",
-              marginBottom: "16px",
-            }}
-          >
-            Slug: {slug}
-          </div>
-        )}
-
-        {/* Color picker */}
         <div style={{ marginBottom: "24px" }}>
           <label
             style={{
@@ -155,79 +190,74 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
               fontSize: "11px",
               fontWeight: 700,
               letterSpacing: "0.2em",
-              textTransform: "uppercase" as const,
+              textTransform: "uppercase",
               color: "var(--text-secondary)",
               marginBottom: "8px",
               fontFamily: "var(--font-sans)",
             }}
           >
-            Color
+            Labels
           </label>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {PROJECT_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                style={{
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "0",
-                  background: c,
-                  border:
-                    c === color
-                      ? "2px solid var(--text-primary)"
-                      : "1px solid var(--rule-faint)",
-                  padding: 0,
-                }}
-              />
-            ))}
-          </div>
+
+          {labels.length === 0 && !showNewLabel && (
+            <div
+              style={{
+                fontSize: "11px",
+                color: "var(--text-muted)",
+                fontFamily: "var(--font-sans)",
+                marginBottom: "8px",
+              }}
+            >
+              No labels yet. Create one below.
+            </div>
+          )}
+
+          {labels.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+                marginBottom: "8px",
+              }}
+            >
+              {labels.map((label) => (
+                <LabelChip
+                  key={label.id}
+                  label={label}
+                  active={selectedLabelIds.has(label.id)}
+                  onClick={() => toggleLabel(label.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {showNewLabel ? (
+            <NewLabelForm
+              onSubmit={handleInlineLabelCreate}
+              onCancel={() => setShowNewLabel(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowNewLabel(true)}
+              style={{
+                background: "transparent",
+                border: "1px dashed var(--rule-faint)",
+                borderRadius: "0",
+                padding: "6px 10px",
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "var(--text-secondary)",
+                fontFamily: "var(--font-sans)",
+                cursor: "pointer",
+              }}
+            >
+              + New Label
+            </button>
+          )}
         </div>
 
-        {/* Preview */}
-        {name.trim() && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "12px",
-              border: "1px solid var(--rule-faint)",
-              borderRadius: "0",
-              marginBottom: "24px",
-            }}
-          >
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "8px",
-                background: `${color}33`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "12px",
-                fontWeight: 700,
-                color: color,
-                flexShrink: 0,
-              }}
-            >
-              {icon}
-            </div>
-            <div
-              style={{
-                fontSize: "14px",
-                fontWeight: 700,
-                color: "var(--text-primary)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
-              {name.trim()}
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
           <button
             onClick={onClose}
@@ -238,15 +268,16 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
               borderRadius: "0",
               padding: "8px 14px",
               fontSize: "12px",
-              fontWeight: 500,
+              fontWeight: 700,
               fontFamily: "var(--font-sans)",
+              cursor: "pointer",
             }}
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!name.trim() || !slug || submitting}
+            disabled={!title.trim() || submitting}
             style={{
               background: "var(--text-primary)",
               color: "#FFFFFF",
@@ -254,12 +285,13 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
               borderRadius: "0",
               padding: "8px 16px",
               fontSize: "12px",
-              fontWeight: 600,
+              fontWeight: 700,
               fontFamily: "var(--font-sans)",
-              opacity: !name.trim() || !slug || submitting ? 0.5 : 1,
+              opacity: !title.trim() || submitting ? 0.5 : 1,
+              cursor: !title.trim() || submitting ? "default" : "pointer",
             }}
           >
-            {submitting ? "Creating..." : "Create Project"}
+            {submitting ? "Creating…" : "Create Project"}
           </button>
         </div>
       </div>
