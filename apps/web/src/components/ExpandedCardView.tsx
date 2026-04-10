@@ -56,8 +56,10 @@ export function ExpandedCardView({
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       saveTimerRef.current = null;
-      await api.put(`/cards/${cardId}`, { summary: value });
-      setCard((prev) => (prev ? { ...prev, summary: value } : prev));
+      const res = await api.put<Card>(`/cards/${cardId}`, { summary: value });
+      if (!res.error) {
+        setCard((prev) => (prev ? { ...prev, summary: value } : prev));
+      }
     }, 1000);
   };
 
@@ -66,8 +68,10 @@ export function ExpandedCardView({
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
-      await api.put(`/cards/${cardId}`, { summary: editingSummary });
-      setCard((prev) => (prev ? { ...prev, summary: editingSummary } : prev));
+      const res = await api.put<Card>(`/cards/${cardId}`, { summary: editingSummary });
+      if (!res.error) {
+        setCard((prev) => (prev ? { ...prev, summary: editingSummary } : prev));
+      }
     }
     setEditingSummary(null);
   };
