@@ -64,16 +64,19 @@ export function ExpandedCardView({
   };
 
   const handleSummaryBlur = async () => {
-    if (editingSummary === null) return;
+    const capturedValue = editingSummary;
+    if (capturedValue === null) return;
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
-      const res = await api.put<Card>(`/cards/${cardId}`, { summary: editingSummary });
+      const res = await api.put<Card>(`/cards/${cardId}`, { summary: capturedValue });
       if (!res.error) {
-        setCard((prev) => (prev ? { ...prev, summary: editingSummary } : prev));
+        setCard((prev) => (prev ? { ...prev, summary: capturedValue } : prev));
       }
     }
-    setEditingSummary(null);
+    // Only clear the editing state if the user hasn't kept typing a fresher value
+    // while this save was in flight.
+    setEditingSummary((current) => (current === capturedValue ? null : current));
   };
 
   if (!card) {
@@ -139,7 +142,10 @@ export function ExpandedCardView({
           <textarea
             value={summaryValue}
             onChange={(e) => handleSummaryChange(e.target.value)}
-            onBlur={handleSummaryBlur}
+            onBlur={(e) => {
+              e.target.style.borderColor = "var(--rule-faint)";
+              handleSummaryBlur();
+            }}
             placeholder="Describe the card..."
             style={{
               width: "100%",
