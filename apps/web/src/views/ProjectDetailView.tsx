@@ -27,7 +27,7 @@ export function ProjectDetailView() {
     tickets,
     loading: ticketsLoading,
     createTicket,
-    updateTicket,
+    reorderTickets,
   } = useTickets(projectId ?? null);
 
   const project = useMemo(
@@ -121,25 +121,20 @@ export function ProjectDetailView() {
     async (itemId: string, toStatus: ContentStatus, toIndex: number) => {
       const ticket = tickets.find((t) => t.id === itemId);
       if (!ticket) return;
+      // Build the new ordering for the destination column, insert the
+      // moved ticket at `toIndex`, then call the reorder RPC in a
+      // single round trip. The RPC rewrites status + sort_order for
+      // every id in the array.
       const columnItems = tickets
         .filter((t) => t.status === toStatus && t.id !== itemId)
         .sort((a, b) => a.sort_order - b.sort_order);
-      columnItems.splice(toIndex, 0, { ...ticket, status: toStatus });
-      await Promise.all(
-        columnItems.map((item, idx) => {
-          const needsStatus = item.status !== toStatus;
-          const needsOrder = item.sort_order !== idx;
-          if (item.id === itemId || needsStatus || needsOrder) {
-            return updateTicket(item.id, {
-              status: toStatus,
-              sort_order: idx,
-            });
-          }
-          return Promise.resolve();
-        })
+      columnItems.splice(toIndex, 0, ticket);
+      await reorderTickets(
+        toStatus,
+        columnItems.map((t) => t.id)
       );
     },
-    [tickets, updateTicket]
+    [tickets, reorderTickets]
   );
 
   const renderTicketCard = useCallback(

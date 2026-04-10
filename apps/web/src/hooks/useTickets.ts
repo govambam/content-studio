@@ -100,6 +100,39 @@ export function useTickets(projectId: string | null) {
     return res;
   };
 
+  // Reorder one column atomically. `ticketIds` is the new in-column
+  // order; the backend RPC rewrites status + sort_order for every id in
+  // one round trip instead of N sequential PUTs.
+  const reorderTickets = async (
+    status: ContentStatus,
+    ticketIds: string[]
+  ) => {
+    if (!projectId) return { data: null, error: "no project" };
+    // Optimistic update: rebuild the tickets array with the new order
+    // for the target column, untouched elsewhere. The realtime echo is
+    // suppressed by `updated_by_client = CLIENT_ID`.
+    setTickets((prev) => {
+      const byId = new Map(prev.map((t) => [t.id, t]));
+      const reordered = ticketIds
+        .map((id, idx) => {
+          const t = byId.get(id);
+          return t ? { ...t, status, sort_order: idx } : null;
+        })
+        .filter((t): t is Ticket => t !== null);
+      const others = prev.filter((t) => !ticketIds.includes(t.id));
+      return [...others, ...reordered];
+    });
+    const res = await api.post<null>(
+      `/projects/${projectId}/tickets/reorder`,
+      { status, ticketIds }
+    );
+    if (res.error) {
+      // Refetch to recover authoritative state on failure.
+      await fetchTickets();
+    }
+    return res;
+  };
+
   return {
     tickets,
     loading,
@@ -107,6 +140,7 @@ export function useTickets(projectId: string | null) {
     createTicket,
     updateTicket,
     deleteTicket,
+    reorderTickets,
     refetch: fetchTickets,
   };
 }
