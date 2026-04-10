@@ -123,7 +123,8 @@ export function TicketDetailView() {
           }}
           onClearFilters={() => setSidebarFilters(new Set())}
           onCreateLabel={async (name, color) => {
-            await createLabel(name, color);
+            const res = await createLabel(name, color);
+            return { error: res.error };
           }}
         />
         <main
@@ -183,7 +184,8 @@ export function TicketDetailView() {
         }}
         onClearFilters={() => setSidebarFilters(new Set())}
         onCreateLabel={async (name, color) => {
-          await createLabel(name, color);
+          const res = await createLabel(name, color);
+          return { error: res.error };
         }}
       />
 

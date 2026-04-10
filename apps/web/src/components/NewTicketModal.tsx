@@ -2,13 +2,17 @@ import { useEffect, useState } from "react";
 
 interface NewTicketModalProps {
   onClose: () => void;
-  onCreate: (input: { title: string; description?: string }) => Promise<void>;
+  onCreate: (input: {
+    title: string;
+    description?: string;
+  }) => Promise<{ error: string | null }>;
 }
 
 export function NewTicketModal({ onClose, onCreate }: NewTicketModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -22,11 +26,16 @@ export function NewTicketModal({ onClose, onCreate }: NewTicketModalProps) {
     const trimmed = title.trim();
     if (!trimmed || submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await onCreate({
+      const res = await onCreate({
         title: trimmed,
         description: description.trim() || undefined,
       });
+      if (res.error) {
+        setSubmitError(res.error);
+        return;
+      }
       onClose();
     } finally {
       setSubmitting(false);
@@ -146,6 +155,25 @@ export function NewTicketModal({ onClose, onCreate }: NewTicketModalProps) {
             onBlur={(e) => (e.target.style.borderColor = "var(--rule-faint)")}
           />
         </div>
+
+        {submitError && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "12px",
+              padding: "8px 12px",
+              border: "1px solid var(--rule-strong)",
+              background: "var(--bg-secondary)",
+              fontSize: "12px",
+              fontWeight: 500,
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-sans)",
+              lineHeight: 1.4,
+            }}
+          >
+            {submitError}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
           <button

@@ -9,7 +9,10 @@ interface SidebarProps {
   activeFilterIds: Set<string>;
   onToggleFilter: (labelId: string) => void;
   onClearFilters: () => void;
-  onCreateLabel: (name: string, color: string) => Promise<void>;
+  onCreateLabel: (
+    name: string,
+    color: string
+  ) => Promise<{ error: string | null }>;
   onDeleteLabel?: (labelId: string) => Promise<void>;
 }
 
@@ -24,8 +27,13 @@ export function Sidebar({
   const [showNewLabel, setShowNewLabel] = useState(false);
 
   const handleCreate = async (name: string, color: string) => {
-    await onCreateLabel(name, color);
+    const res = await onCreateLabel(name, color);
+    if (res.error) {
+      // Let the inline form render the error; keep the form open.
+      return res;
+    }
     setShowNewLabel(false);
+    return res;
   };
 
   return (
