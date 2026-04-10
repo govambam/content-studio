@@ -81,7 +81,11 @@ export function TicketDetailView() {
     ) {
       return;
     }
-    await deleteTicket();
+    const res = await deleteTicket();
+    if (res.error) {
+      window.alert(`Could not delete ticket: ${res.error}`);
+      return;
+    }
     navigate(`/projects/${projectId}`);
   };
 
