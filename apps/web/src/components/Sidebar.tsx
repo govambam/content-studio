@@ -1,18 +1,31 @@
-import type { Project } from "@content-studio/shared";
+import { useState } from "react";
+import { NavLink } from "react-router-dom";
+import type { Label } from "@content-studio/shared";
+import { LabelChip } from "./LabelChip";
+import { NewLabelForm } from "./NewLabelForm";
 
 interface SidebarProps {
-  projects: Project[];
-  activeProjectId: string | null;
-  onSelectProject: (id: string) => void;
-  onNewProject: () => void;
+  labels: Label[];
+  activeFilterIds: Set<string>;
+  onToggleFilter: (labelId: string) => void;
+  onClearFilters: () => void;
+  onCreateLabel: (name: string, color: string) => Promise<void>;
 }
 
 export function Sidebar({
-  projects,
-  activeProjectId,
-  onSelectProject,
-  onNewProject,
+  labels,
+  activeFilterIds,
+  onToggleFilter,
+  onClearFilters,
+  onCreateLabel,
 }: SidebarProps) {
+  const [showNewLabel, setShowNewLabel] = useState(false);
+
+  const handleCreate = async (name: string, color: string) => {
+    await onCreateLabel(name, color);
+    setShowNewLabel(false);
+  };
+
   return (
     <aside
       style={{
@@ -27,7 +40,6 @@ export function Sidebar({
         overflow: "hidden",
       }}
     >
-      {/* Wordmark */}
       <div style={{ padding: "0 20px", marginBottom: "24px" }}>
         <div
           style={{
@@ -36,7 +48,7 @@ export function Sidebar({
             fontWeight: 800,
             color: "var(--accent-blue)",
             letterSpacing: "0.12em",
-            textTransform: "uppercase" as const,
+            textTransform: "uppercase",
           }}
         >
           Content Studio
@@ -54,113 +66,132 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Section header */}
+      <nav style={{ padding: "0 12px", marginBottom: "24px" }}>
+        <NavLink
+          to="/"
+          end
+          style={({ isActive }) => ({
+            display: "block",
+            padding: "8px 12px",
+            textDecoration: "none",
+            fontSize: "13px",
+            fontWeight: isActive ? 600 : 500,
+            color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+            background: isActive ? "var(--bg-surface)" : "transparent",
+            fontFamily: "var(--font-sans)",
+          })}
+        >
+          Home
+        </NavLink>
+      </nav>
+
       <div
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           padding: "0 20px",
-          marginBottom: "6px",
-          fontSize: "10px",
-          fontWeight: 600,
-          color: "var(--text-secondary)",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase" as const,
-          fontFamily: "var(--font-sans)",
+          marginBottom: "8px",
         }}
       >
-        Projects
+        <div
+          style={{
+            fontSize: "10px",
+            fontWeight: 700,
+            color: "var(--text-secondary)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            fontFamily: "var(--font-sans)",
+          }}
+        >
+          Labels
+        </div>
+        {activeFilterIds.size > 0 && (
+          <button
+            onClick={onClearFilters}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "var(--text-primary)",
+              fontSize: "10px",
+              fontWeight: 700,
+              cursor: "pointer",
+              padding: 0,
+              fontFamily: "var(--font-sans)",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Project list */}
       <div
         style={{
           flex: 1,
           overflowY: "auto",
           padding: "0 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
         }}
       >
-        {projects.map((project) => {
-          const isActive = project.id === activeProjectId;
-          return (
-            <button
-              key={project.id}
-              onClick={() => onSelectProject(project.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                width: "100%",
-                padding: "10px 8px",
-                borderRadius: "6px",
-                border: "none",
-                background: isActive ? "var(--bg-surface)" : "transparent",
-                textAlign: "left",
-                fontFamily: "var(--font-sans)",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.background = "var(--bg-secondary)";
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.background = "transparent";
-              }}
-            >
-              {/* Project icon */}
-              <div
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "6px",
-                  background: `${project.color}33`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: project.color,
-                  flexShrink: 0,
-                }}
-              >
-                {project.icon}
-              </div>
+        {labels.length === 0 && !showNewLabel && (
+          <div
+            style={{
+              padding: "8px 8px",
+              fontSize: "11px",
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            No labels yet
+          </div>
+        )}
 
-              {/* Project name */}
-              <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: isActive ? 600 : 400,
-                    color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {project.name}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+        {labels.map((label) => (
+          <div key={label.id} style={{ padding: "2px 4px" }}>
+            <LabelChip
+              label={label}
+              active={activeFilterIds.has(label.id)}
+              onClick={() => onToggleFilter(label.id)}
+            />
+          </div>
+        ))}
 
-        {/* New project button */}
-        <button
-          onClick={onNewProject}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "100%",
-            padding: "10px 8px",
-            marginTop: "4px",
-            border: "1px dashed var(--rule-faint)",
-            borderRadius: "0",
-            background: "transparent",
-            fontSize: "12px",
-            color: "var(--text-secondary)",
-            fontFamily: "var(--font-sans)",
-          }}
-        >
-          + New Project
-        </button>
+        {showNewLabel && (
+          <div style={{ padding: "4px" }}>
+            <NewLabelForm
+              onSubmit={handleCreate}
+              onCancel={() => setShowNewLabel(false)}
+            />
+          </div>
+        )}
+
+        {!showNewLabel && (
+          <button
+            onClick={() => setShowNewLabel(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              padding: "8px",
+              marginTop: "4px",
+              border: "1px dashed var(--rule-faint)",
+              borderRadius: "0",
+              background: "transparent",
+              fontSize: "11px",
+              fontWeight: 700,
+              color: "var(--text-secondary)",
+              fontFamily: "var(--font-sans)",
+              cursor: "pointer",
+            }}
+          >
+            + New Label
+          </button>
+        )}
       </div>
     </aside>
   );

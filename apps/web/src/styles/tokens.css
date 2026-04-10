@@ -11,11 +11,11 @@
   --overlay-dark: rgba(0, 0, 0, 0.8);
   --accent-blue: #1E3AFF;
 
-  /* Stage colors */
-  --stage-unreviewed: #94A3B8;
-  --stage-considering: #8B5CF6;
-  --stage-production: #F59E0B;
-  --stage-published: #10B981;
+  /* Status colors (Phase 2 content_status) */
+  --status-backlog: #94A3B8;
+  --status-in-progress: #3B82F6;
+  --status-in-review: #F59E0B;
+  --status-done: #10B981;
 
   /* Typography */
   --font-sans: 'Space Grotesk', -apple-system, system-ui, sans-serif;
