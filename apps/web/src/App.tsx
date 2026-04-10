@@ -1,26 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
-import { NewIdeaModal } from "./components/NewIdeaModal";
-import { ContextModal } from "./components/ContextModal";
 import { KanbanBoard } from "./components/KanbanBoard";
 import { ExpandedCardView } from "./components/ExpandedCardView";
 import { useProjects } from "./hooks/useProjects";
 import { useCards } from "./hooks/useCards";
-import { useContextFiles } from "./hooks/useContextFiles";
 import { api } from "./lib/api";
-import type { Card, ContentType } from "@content-studio/shared";
+import type { Card } from "@content-studio/shared";
 
 function App() {
   const { projects, loading, createProject } = useProjects();
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
-  const [showNewIdea, setShowNewIdea] = useState(false);
-  const [showContext, setShowContext] = useState(false);
-  const [generatingIdeas, setGeneratingIdeas] = useState(false);
+  const [composingCard, setComposingCard] = useState(false);
+  const [newCardTitle, setNewCardTitle] = useState("");
+  const [creatingCard, setCreatingCard] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const newCardInputRef = useRef<HTMLInputElement>(null);
   const { cards, refetch: refetchCards } = useCards(activeProjectId);
-  const { files: contextFiles, uploadFile, deleteFile } = useContextFiles(activeProjectId);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
@@ -28,9 +25,10 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (showNewProject) setShowNewProject(false);
-        else if (showNewIdea) setShowNewIdea(false);
-        else if (showContext) setShowContext(false);
-        else if (expandedCardId) {
+        else if (composingCard) {
+          setComposingCard(false);
+          setNewCardTitle("");
+        } else if (expandedCardId) {
           setExpandedCardId(null);
           refetchCards();
         }
@@ -38,38 +36,41 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showNewProject, showNewIdea, showContext, expandedCardId, refetchCards]);
+  }, [showNewProject, composingCard, expandedCardId, refetchCards]);
 
-  const handleCreateIdea = async (data: { title: string; summary: string; content_type: ContentType }) => {
+  useEffect(() => {
+    if (composingCard) {
+      newCardInputRef.current?.focus();
+    }
+  }, [composingCard]);
+
+  const handleStartComposeCard = () => {
     if (!activeProject) return;
-    const res = await api.post<Card>(`/projects/${activeProject.id}/cards`, {
-      title: data.title,
-      summary: data.summary,
-      content_type: data.content_type,
-      created_by: "user",
-    });
-    if (res.data) {
-      await refetchCards();
-      setExpandedCardId(res.data.id);
+    setComposingCard(true);
+  };
+
+  const handleSubmitNewCard = async () => {
+    const title = newCardTitle.trim();
+    if (!title || !activeProject || creatingCard) return;
+    setCreatingCard(true);
+    try {
+      const res = await api.post<Card>(`/projects/${activeProject.id}/cards`, {
+        title,
+      });
+      if (res.data) {
+        setComposingCard(false);
+        setNewCardTitle("");
+        await refetchCards();
+        setExpandedCardId(res.data.id);
+      }
+    } finally {
+      setCreatingCard(false);
     }
   };
 
-  const handleGenerateIdeas = async () => {
-    if (!activeProject) return;
-    setGeneratingIdeas(true);
-    try {
-      await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
-      // Poll for cards until they appear (Realtime should trigger it sooner)
-      const deadline = Date.now() + 60000; // 60s max
-      while (Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const res = await api.get<Card[]>(`/projects/${activeProject.id}/cards`);
-        if (res.data && res.data.length > 0) break;
-      }
-      await refetchCards();
-    } finally {
-      setGeneratingIdeas(false);
-    }
+  const handleCancelNewCard = () => {
+    setComposingCard(false);
+    setNewCardTitle("");
   };
 
   return (
@@ -125,79 +126,161 @@ function App() {
                 >
                   {activeProject.icon}
                 </div>
-                <div style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>
+                <div
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    letterSpacing: "-0.01em",
+                    color: "var(--text-primary)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
                   {activeProject.name}
                 </div>
                 {cards.length > 0 && (
-                  <div style={{ fontSize: "12px", fontWeight: 400, color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
-                    {cards.length} ideas · {cards.filter((c) => c.stage === "considering").length} considering · {cards.filter((c) => c.stage === "in_production").length} in production
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 400,
+                      color: "var(--text-muted)",
+                      fontFamily: "var(--font-sans)",
+                    }}
+                  >
+                    {cards.length} cards ·{" "}
+                    {cards.filter((c) => c.stage === "considering").length} considering ·{" "}
+                    {cards.filter((c) => c.stage === "in_production").length} in production
                   </div>
                 )}
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  onClick={() => setShowContext(true)}
-                  style={{
-                    background: "var(--bg-surface)",
-                    color: "var(--text-secondary)",
-                    border: "1px solid var(--rule-faint)",
-                    borderRadius: "0",
-                    padding: "8px 14px",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                  Context ({contextFiles.length})
-                </button>
-                <button
-                  onClick={() => setShowNewIdea(true)}
-                  style={{
-                    background: "var(--text-primary)",
-                    color: "#FFFFFF",
-                    border: "none",
-                    borderRadius: "0",
-                    padding: "8px 16px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                + Idea
-              </button>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                {composingCard ? (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <input
+                      ref={newCardInputRef}
+                      type="text"
+                      value={newCardTitle}
+                      onChange={(e) => setNewCardTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSubmitNewCard();
+                        if (e.key === "Escape") handleCancelNewCard();
+                      }}
+                      onBlur={() => {
+                        if (!newCardTitle.trim()) handleCancelNewCard();
+                      }}
+                      placeholder="Card title…"
+                      disabled={creatingCard}
+                      style={{
+                        width: "240px",
+                        padding: "8px 12px",
+                        background: "var(--bg-surface)",
+                        border: "1px solid var(--rule-strong)",
+                        borderRadius: "0",
+                        fontSize: "12px",
+                        fontWeight: 400,
+                        fontFamily: "var(--font-sans)",
+                        color: "var(--text-primary)",
+                        outline: "none",
+                      }}
+                    />
+                    <button
+                      onClick={handleSubmitNewCard}
+                      disabled={!newCardTitle.trim() || creatingCard}
+                      style={{
+                        background: "var(--text-primary)",
+                        color: "#FFFFFF",
+                        border: "none",
+                        borderRadius: "0",
+                        padding: "8px 16px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        fontFamily: "var(--font-sans)",
+                        opacity: !newCardTitle.trim() || creatingCard ? 0.5 : 1,
+                        cursor: !newCardTitle.trim() || creatingCard ? "default" : "pointer",
+                      }}
+                    >
+                      {creatingCard ? "Creating…" : "Create"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleStartComposeCard}
+                    style={{
+                      background: "var(--text-primary)",
+                      color: "#FFFFFF",
+                      border: "none",
+                      borderRadius: "0",
+                      padding: "8px 16px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      fontFamily: "var(--font-sans)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    + Card
+                  </button>
+                )}
               </div>
             </header>
 
             {expandedCardId ? (
               <ExpandedCardView
                 cardId={expandedCardId}
-                projectName={activeProject.name}
-                projectId={activeProject.id}
                 onBack={() => {
                   setExpandedCardId(null);
                   refetchCards();
                 }}
                 onDelete={refetchCards}
-                contextFiles={contextFiles}
-                onUploadFile={uploadFile}
-                onDeleteFile={deleteFile}
               />
             ) : (
-              <KanbanBoard
-                cards={cards}
-                onCardClick={setExpandedCardId}
-                generating={generatingIdeas}
-              />
+              <KanbanBoard cards={cards} onCardClick={setExpandedCardId} />
             )}
           </>
         ) : (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "var(--page-padding)" }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "var(--page-padding)",
+            }}
+          >
             {loading ? (
-              <div style={{ fontSize: "14px", fontWeight: 400, color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>Loading...</div>
+              <div
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 400,
+                  color: "var(--text-muted)",
+                  fontFamily: "var(--font-sans)",
+                }}
+              >
+                Loading...
+              </div>
             ) : (
               <>
-                <div style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-sans)" }}>Content Studio</div>
-                <div style={{ fontSize: "14px", fontWeight: 400, color: "var(--text-secondary)", marginTop: "8px", fontFamily: "var(--font-sans)" }}>Select or create a project to get started.</div>
+                <div
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    letterSpacing: "-0.01em",
+                    color: "var(--text-primary)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
+                  Content Studio
+                </div>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 400,
+                    color: "var(--text-secondary)",
+                    marginTop: "8px",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
+                  Select or create a project to get started.
+                </div>
               </>
             )}
           </div>
@@ -211,23 +294,6 @@ function App() {
             const project = await createProject(data);
             if (project) setActiveProjectId(project.id);
           }}
-        />
-      )}
-
-      {showNewIdea && activeProject && (
-        <NewIdeaModal
-          onClose={() => setShowNewIdea(false)}
-          onCreate={handleCreateIdea}
-          onGenerate={handleGenerateIdeas}
-        />
-      )}
-
-      {showContext && activeProject && (
-        <ContextModal
-          files={contextFiles}
-          onUpload={uploadFile}
-          onDelete={deleteFile}
-          onClose={() => setShowContext(false)}
         />
       )}
     </div>

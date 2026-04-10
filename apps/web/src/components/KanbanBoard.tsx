@@ -1,16 +1,10 @@
 import type { Card, Stage } from "@content-studio/shared";
 import { KanbanCard } from "./KanbanCard";
-import { StageDot, STAGE_CONFIG } from "./StageBadge";
-import { SkeletonCard } from "./SkeletonCard";
-
-interface CardWithArtifacts extends Card {
-  artifacts: Array<{ id: string; type: string; status: string }>;
-}
+import { StageDot } from "./StageBadge";
 
 interface KanbanBoardProps {
-  cards: CardWithArtifacts[];
+  cards: Card[];
   onCardClick: (cardId: string) => void;
-  generating?: boolean;
 }
 
 const STAGES: Stage[] = ["unreviewed", "considering", "in_production", "published"];
@@ -22,16 +16,16 @@ const STAGE_LABELS: Record<Stage, string> = {
   published: "PUBLISHED",
 };
 
-export function KanbanBoard({ cards, onCardClick, generating = false }: KanbanBoardProps) {
+export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
   const cardsByStage = STAGES.reduce(
     (acc, stage) => {
       acc[stage] = cards.filter((c) => c.stage === stage);
       return acc;
     },
-    {} as Record<Stage, CardWithArtifacts[]>
+    {} as Record<Stage, Card[]>
   );
 
-  if (cards.length === 0 && !generating) {
+  if (cards.length === 0) {
     return (
       <div
         style={{
@@ -52,7 +46,7 @@ export function KanbanBoard({ cards, onCardClick, generating = false }: KanbanBo
             fontFamily: "var(--font-sans)",
           }}
         >
-          No ideas yet. Click "+ Idea" to create or generate ideas.
+          No cards yet. Click "+ Card" to create one.
         </div>
       </div>
     );
@@ -92,7 +86,7 @@ export function KanbanBoard({ cards, onCardClick, generating = false }: KanbanBo
               style={{
                 fontSize: "12px",
                 fontWeight: 700,
-                color: "#334155",
+                color: "var(--text-primary)",
                 textTransform: "uppercase" as const,
                 letterSpacing: "0.05em",
                 fontFamily: "var(--font-sans)",
@@ -109,7 +103,6 @@ export function KanbanBoard({ cards, onCardClick, generating = false }: KanbanBo
               }}
             >
               {cardsByStage[stage].length}
-              {stage === "unreviewed" && generating && " · generating..."}
             </span>
           </div>
 
@@ -130,12 +123,6 @@ export function KanbanBoard({ cards, onCardClick, generating = false }: KanbanBo
                 onClick={() => onCardClick(card.id)}
               />
             ))}
-
-            {/* Skeleton cards during idea generation */}
-            {stage === "unreviewed" && generating &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <SkeletonCard key={`skeleton-${i}`} />
-              ))}
           </div>
         </div>
       ))}

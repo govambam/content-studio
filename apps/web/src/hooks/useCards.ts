@@ -3,12 +3,8 @@ import type { Card } from "@content-studio/shared";
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
 
-interface CardWithArtifacts extends Card {
-  artifacts: Array<{ id: string; type: string; status: string }>;
-}
-
 export function useCards(projectId: string | null) {
-  const [cards, setCards] = useState<CardWithArtifacts[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +14,7 @@ export function useCards(projectId: string | null) {
       return;
     }
     setLoading(true);
-    const res = await api.get<CardWithArtifacts[]>(`/projects/${projectId}/cards`);
+    const res = await api.get<Card[]>(`/projects/${projectId}/cards`);
     if (res.error) {
       setError(res.error);
     } else {
@@ -47,7 +43,6 @@ export function useCards(projectId: string | null) {
           filter: `project_id=eq.${projectId}`,
         },
         () => {
-          // Refetch on any change to get full card data with artifacts
           fetchCards();
         }
       )
