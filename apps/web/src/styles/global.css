@@ -35,6 +35,25 @@ input, textarea, select {
   50% { opacity: 0.5; }
 }
 
+/*
+ * Hoverable card — used by ProjectCard, TicketCard, KanbanCard.
+ * CSS :hover keeps hover-detection inside the browser's rendering
+ * pipeline so scroll stays on the compositor thread. Previously these
+ * cards used onMouseEnter/onMouseLeave to mutate inline borderColor,
+ * which fired synchronously during scroll as the cursor passed over
+ * each card and blocked compositor scrolling — the source of the
+ * kanban scroll jank.
+ */
+.cs-hoverable-card {
+  border: 1px solid var(--rule-faint);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+
+.cs-hoverable-card:hover {
+  border-color: var(--rule-strong);
+}
+
 .cs-markdown h1,
 .cs-markdown h2,
 .cs-markdown h3,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type {
   ContentStatus,
@@ -117,28 +117,44 @@ export function ProjectDetailView() {
     navigate("/");
   };
 
-  const handleItemMoved = async (
-    itemId: string,
-    toStatus: ContentStatus,
-    toIndex: number
-  ) => {
-    const ticket = tickets.find((t) => t.id === itemId);
-    if (!ticket) return;
-    const columnItems = tickets
-      .filter((t) => t.status === toStatus && t.id !== itemId)
-      .sort((a, b) => a.sort_order - b.sort_order);
-    columnItems.splice(toIndex, 0, { ...ticket, status: toStatus });
-    await Promise.all(
-      columnItems.map((item, idx) => {
-        const needsStatus = item.status !== toStatus;
-        const needsOrder = item.sort_order !== idx;
-        if (item.id === itemId || needsStatus || needsOrder) {
-          return updateTicket(item.id, { status: toStatus, sort_order: idx });
+  const handleItemMoved = useCallback(
+    async (itemId: string, toStatus: ContentStatus, toIndex: number) => {
+      const ticket = tickets.find((t) => t.id === itemId);
+      if (!ticket) return;
+      const columnItems = tickets
+        .filter((t) => t.status === toStatus && t.id !== itemId)
+        .sort((a, b) => a.sort_order - b.sort_order);
+      columnItems.splice(toIndex, 0, { ...ticket, status: toStatus });
+      await Promise.all(
+        columnItems.map((item, idx) => {
+          const needsStatus = item.status !== toStatus;
+          const needsOrder = item.sort_order !== idx;
+          if (item.id === itemId || needsStatus || needsOrder) {
+            return updateTicket(item.id, {
+              status: toStatus,
+              sort_order: idx,
+            });
+          }
+          return Promise.resolve();
+        })
+      );
+    },
+    [tickets, updateTicket]
+  );
+
+  const renderTicketCard = useCallback(
+    (ticket: Ticket) => (
+      <TicketCard
+        ticket={ticket}
+        assetCount={ticket.asset_count ?? 0}
+        commentCount={ticket.comment_count ?? 0}
+        onClick={() =>
+          navigate(`/projects/${projectId}/tickets/${ticket.id}`)
         }
-        return Promise.resolve();
-      })
-    );
-  };
+      />
+    ),
+    [navigate, projectId]
+  );
 
   const handleCreateTicket = async (input: {
     title: string;
@@ -538,16 +554,7 @@ export function ProjectDetailView() {
         ) : (
           <KanbanBoard<Ticket>
             items={tickets}
-            renderItem={(ticket) => (
-              <TicketCard
-                ticket={ticket}
-                assetCount={ticket.asset_count ?? 0}
-                commentCount={ticket.comment_count ?? 0}
-                onClick={() =>
-                  navigate(`/projects/${project.id}/tickets/${ticket.id}`)
-                }
-              />
-            )}
+            renderItem={renderTicketCard}
             onItemMoved={handleItemMoved}
             emptyMessage="No tickets yet. Break down the work by creating your first ticket."
             emptyAction={

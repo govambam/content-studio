@@ -17,6 +17,21 @@ async function request<T>(
       },
     });
 
+    // Non-JSON response (proxy error page, 404 HTML, plain-text 500,
+    // etc.) would otherwise crash with an opaque "Unexpected token"
+    // from res.json(). Peek at the body and surface something useful.
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      const body = await res.text();
+      const snippet = body.slice(0, 160).trim();
+      return {
+        data: null,
+        error: `API ${res.status} ${res.statusText}${
+          snippet ? `: ${snippet}` : ""
+        }`,
+      } as ApiResponse<T>;
+    }
+
     return (await res.json()) as ApiResponse<T>;
   } catch (err) {
     return {

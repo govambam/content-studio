@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ContentStatus, Project } from "@content-studio/shared";
 import { Sidebar } from "../components/Sidebar";
@@ -39,31 +39,43 @@ export function HomeView() {
     );
   }, [projects, activeFilterIds]);
 
-  const handleItemMoved = async (
-    itemId: string,
-    toStatus: ContentStatus,
-    toIndex: number
-  ) => {
-    const project = projects.find((p) => p.id === itemId);
-    if (!project) return;
-    // Compute a new sort_order that slots into the target column at toIndex.
-    // Simple approach: renumber the target column after insertion.
-    const columnItems = projects
-      .filter((p) => p.status === toStatus && p.id !== itemId)
-      .sort((a, b) => a.sort_order - b.sort_order);
-    columnItems.splice(toIndex, 0, { ...project, status: toStatus });
-    // Issue updates for anything whose (status, sort_order) changed.
-    await Promise.all(
-      columnItems.map((item, idx) => {
-        const needsStatus = item.status !== toStatus;
-        const needsOrder = item.sort_order !== idx;
-        if (item.id === itemId || needsStatus || needsOrder) {
-          return updateProject(item.id, { status: toStatus, sort_order: idx });
-        }
-        return Promise.resolve();
-      })
-    );
-  };
+  // useCallback so KanbanBoard's onItemMoved prop has a stable identity
+  // and doesn't cascade re-renders into every ProjectCard through the
+  // render-prop tree.
+  const handleItemMoved = useCallback(
+    async (itemId: string, toStatus: ContentStatus, toIndex: number) => {
+      const project = projects.find((p) => p.id === itemId);
+      if (!project) return;
+      const columnItems = projects
+        .filter((p) => p.status === toStatus && p.id !== itemId)
+        .sort((a, b) => a.sort_order - b.sort_order);
+      columnItems.splice(toIndex, 0, { ...project, status: toStatus });
+      await Promise.all(
+        columnItems.map((item, idx) => {
+          const needsStatus = item.status !== toStatus;
+          const needsOrder = item.sort_order !== idx;
+          if (item.id === itemId || needsStatus || needsOrder) {
+            return updateProject(item.id, {
+              status: toStatus,
+              sort_order: idx,
+            });
+          }
+          return Promise.resolve();
+        })
+      );
+    },
+    [projects, updateProject]
+  );
+
+  const renderProjectCard = useCallback(
+    (project: Project) => (
+      <ProjectCard
+        project={project}
+        onClick={() => navigate(`/projects/${project.id}`)}
+      />
+    ),
+    [navigate]
+  );
 
   const handleCreateProject = async (input: {
     title: string;
@@ -167,12 +179,7 @@ export function HomeView() {
         ) : (
           <KanbanBoard<Project>
             items={visibleProjects}
-            renderItem={(project) => (
-              <ProjectCard
-                project={project}
-                onClick={() => navigate(`/projects/${project.id}`)}
-              />
-            )}
+            renderItem={renderProjectCard}
             onItemMoved={handleItemMoved}
             emptyMessage={
               projects.length === 0
