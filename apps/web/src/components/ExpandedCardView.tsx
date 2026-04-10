@@ -93,13 +93,16 @@ export function ExpandedCardView({
   };
 
   const handleSummaryBlur = async () => {
-    if (editingSummary !== null && saveTimerRef.current) {
+    if (editingSummary === null) return;
+    // Flush any pending debounced save
+    if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
       await api.put(`/cards/${cardId}`, { summary: editingSummary });
       setCard((prev) => prev ? { ...prev, summary: editingSummary } : prev);
-      setEditingSummary(null);
     }
+    // Always clear editing state so future renders use the saved value
+    setEditingSummary(null);
   };
 
   const handleGenerateArtifact = async (artifactType: string) => {
