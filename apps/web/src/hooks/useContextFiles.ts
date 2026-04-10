@@ -29,21 +29,25 @@ export function useContextFiles(projectId: string | null) {
   ): Promise<ContextFile | null> => {
     if (!projectId) return null;
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("file_type", fileType);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("file_type", fileType);
 
-    const res = await fetch(
-      `${import.meta.env.VITE_API_URL || "/api"}/projects/${projectId}/context`,
-      { method: "POST", body: formData }
-    );
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || "/api"}/projects/${projectId}/context`,
+        { method: "POST", body: formData }
+      );
 
-    const json = await res.json();
-    if (json.data) {
-      setFiles((prev) => [json.data, ...prev]);
-      return json.data;
+      const json = await res.json();
+      if (json.data) {
+        setFiles((prev) => [json.data, ...prev]);
+        return json.data;
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
   };
 
   const deleteFile = async (fileId: string): Promise<boolean> => {
