@@ -34,7 +34,10 @@ interface KanbanBoardProps<T extends KanbanItem> {
     toStatus: ContentStatus,
     toIndex: number
   ) => void;
+  // Shown as a centered banner over the empty columns when items.length === 0.
+  // The columns are always rendered so the user sees the board structure.
   emptyMessage?: string;
+  emptyAction?: ReactNode;
 }
 
 export function KanbanBoard<T extends KanbanItem>({
@@ -42,6 +45,7 @@ export function KanbanBoard<T extends KanbanItem>({
   renderItem,
   onItemMoved,
   emptyMessage,
+  emptyAction,
 }: KanbanBoardProps<T>) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -65,24 +69,8 @@ export function KanbanBoard<T extends KanbanItem>({
     return map;
   }, [items]);
 
-  if (items.length === 0 && emptyMessage) {
-    return (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "var(--page-padding)",
-          fontFamily: "var(--font-sans)",
-          fontSize: "14px",
-          color: "var(--text-muted)",
-        }}
-      >
-        {emptyMessage}
-      </div>
-    );
-  }
+  const isEmpty = items.length === 0;
+  const showEmptyOverlay = isEmpty && Boolean(emptyMessage || emptyAction);
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
@@ -132,21 +120,72 @@ export function KanbanBoard<T extends KanbanItem>({
     >
       <div
         style={{
-          display: "flex",
-          gap: "16px",
+          position: "relative",
           flex: 1,
-          padding: "var(--page-padding)",
-          overflow: "auto",
+          display: "flex",
+          overflow: "hidden",
         }}
       >
-        {CONTENT_STATUSES.map((status) => (
-          <KanbanColumn
-            key={status}
-            status={status}
-            items={grouped[status]}
-            renderItem={renderItem}
-          />
-        ))}
+        <div
+          style={{
+            display: "flex",
+            gap: "16px",
+            flex: 1,
+            padding: "var(--page-padding)",
+            overflow: "auto",
+          }}
+        >
+          {CONTENT_STATUSES.map((status) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              items={grouped[status]}
+              renderItem={renderItem}
+            />
+          ))}
+        </div>
+        {showEmptyOverlay && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                pointerEvents: "auto",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--rule-strong)",
+                padding: "24px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "12px",
+                maxWidth: "360px",
+                textAlign: "center",
+                fontFamily: "var(--font-sans)",
+              }}
+            >
+              {emptyMessage && (
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 400,
+                    color: "var(--text-secondary)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {emptyMessage}
+                </div>
+              )}
+              {emptyAction}
+            </div>
+          </div>
+        )}
       </div>
       <DragOverlay>
         {activeItem ? (

@@ -198,10 +198,47 @@ export function HomeView() {
             onItemMoved={handleItemMoved}
             emptyMessage={
               projects.length === 0
-                ? "No projects yet. Click + New Project to start your first content initiative."
+                ? "No projects yet. Start your first content initiative."
                 : activeFilterIds.size > 0
                   ? "No projects match the current label filter."
                   : undefined
+            }
+            emptyAction={
+              projects.length === 0 ? (
+                <button
+                  onClick={() => setShowNewProject(true)}
+                  style={{
+                    background: "var(--text-primary)",
+                    color: "#FFFFFF",
+                    border: "none",
+                    borderRadius: "0",
+                    padding: "8px 16px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    fontFamily: "var(--font-sans)",
+                    cursor: "pointer",
+                  }}
+                >
+                  + New Project
+                </button>
+              ) : activeFilterIds.size > 0 ? (
+                <button
+                  onClick={clearFilters}
+                  style={{
+                    background: "var(--bg-surface)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--rule-faint)",
+                    borderRadius: "0",
+                    padding: "8px 16px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    fontFamily: "var(--font-sans)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Clear filter
+                </button>
+              ) : undefined
             }
           />
         )}
