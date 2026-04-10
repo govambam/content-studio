@@ -6,6 +6,7 @@ import type {
   Ticket,
 } from "@content-studio/shared";
 import { CONTENT_STATUSES, STATUS_LABELS } from "@content-studio/shared";
+import { Sidebar } from "../components/Sidebar";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { KanbanBoard } from "../components/KanbanBoard";
 import { TicketCard } from "../components/TicketCard";
@@ -13,7 +14,6 @@ import { NewTicketModal } from "../components/NewTicketModal";
 import { LabelChip } from "../components/LabelChip";
 import { StatusBadge } from "../components/StatusBadge";
 import { SkeletonKanbanBoard } from "../components/Skeleton";
-import { Wordmark } from "../components/Wordmark";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
 import { useTickets } from "../hooks/useTickets";
@@ -21,7 +21,7 @@ import { useTickets } from "../hooks/useTickets";
 export function ProjectDetailView() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { labels } = useLabels();
+  const { labels, createLabel } = useLabels();
   const { projects, updateProject, deleteProject } = useProjects();
   const {
     tickets,
@@ -35,6 +35,7 @@ export function ProjectDetailView() {
     [projects, projectId]
   );
 
+  const [sidebarFilters, setSidebarFilters] = useState<Set<string>>(new Set());
   const [showNewTicket, setShowNewTicket] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
@@ -147,61 +148,76 @@ export function ProjectDetailView() {
     return { error: res.error };
   };
 
+  const handleCreateLabel = async (name: string, color: string) => {
+    const res = await createLabel(name, color);
+    return { error: res.error };
+  };
+
   if (!project) {
     return (
-      <main
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100vh",
-          background: "var(--bg-primary)",
-        }}
-      >
-        <TopStrip />
-        <div
+      <div style={{ display: "flex", height: "100vh" }}>
+        <Sidebar
+          labels={labels}
+          activeFilterIds={sidebarFilters}
+          onToggleFilter={(id) => {
+            setSidebarFilters(new Set([id]));
+            navigate("/");
+          }}
+          onClearFilters={() => setSidebarFilters(new Set())}
+          onCreateLabel={handleCreateLabel}
+        />
+        <main
           style={{
             flex: 1,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            background: "var(--bg-primary)",
             fontFamily: "var(--font-sans)",
             color: "var(--text-muted)",
             fontSize: "14px",
           }}
         >
           Loading project…
-        </div>
-      </main>
+        </main>
+      </div>
     );
   }
 
   const attachedLabelIds = new Set(project.labels.map((l) => l.id));
 
   return (
-    <main
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        background: "var(--bg-primary)",
-        overflow: "hidden",
-      }}
-    >
-      <TopStrip
-        breadcrumb={
+    <div style={{ display: "flex", height: "100vh" }}>
+      <Sidebar
+        labels={labels}
+        activeFilterIds={sidebarFilters}
+        onToggleFilter={(id) => {
+          setSidebarFilters(new Set([id]));
+          navigate("/");
+        }}
+        onClearFilters={() => setSidebarFilters(new Set())}
+        onCreateLabel={handleCreateLabel}
+      />
+
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--bg-primary)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "20px 24px 16px",
+            borderBottom: "1px solid var(--rule-faint)",
+          }}
+        >
           <Breadcrumbs
             items={[{ label: "Home", to: "/" }, { label: project.title }]}
           />
-        }
-      />
-
-      <div
-        style={{
-          padding: "20px 24px 16px",
-          borderBottom: "1px solid var(--rule-faint)",
-        }}
-      >
-          <div>
+          <div style={{ marginTop: "12px" }}>
             {editingTitle ? (
               <input
                 ref={titleInputRef}
@@ -542,34 +558,14 @@ export function ProjectDetailView() {
             }
           />
         )}
+      </main>
+
       {showNewTicket && (
         <NewTicketModal
           onClose={() => setShowNewTicket(false)}
           onCreate={handleCreateTicket}
         />
       )}
-    </main>
-  );
-}
-
-interface TopStripProps {
-  breadcrumb?: React.ReactNode;
-}
-
-function TopStrip({ breadcrumb }: TopStripProps) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "24px",
-        padding: "16px 24px",
-        borderBottom: "1px solid var(--rule-faint)",
-        flexShrink: 0,
-      }}
-    >
-      <Wordmark />
-      {breadcrumb}
     </div>
   );
 }
