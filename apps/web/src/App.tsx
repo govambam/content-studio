@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { HomeView } from "./views/HomeView";
 import { ProjectDetailView } from "./views/ProjectDetailView";
 import { TicketDetailView } from "./views/TicketDetailView";
+import { DataProvider } from "./context/DataContext";
 
 // The outer black frame wraps the entire app shell (sidebar + main).
 // This is the "container" framing from v3 of the brutalist refinement —
@@ -21,14 +22,16 @@ function App() {
         overflow: "hidden",
       }}
     >
-      <Routes>
-        <Route path="/" element={<HomeView />} />
-        <Route path="/projects/:projectId" element={<ProjectDetailView />} />
-        <Route
-          path="/projects/:projectId/tickets/:ticketId"
-          element={<TicketDetailView />}
-        />
-      </Routes>
+      <DataProvider>
+        <Routes>
+          <Route path="/" element={<HomeView />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailView />} />
+          <Route
+            path="/projects/:projectId/tickets/:ticketId"
+            element={<TicketDetailView />}
+          />
+        </Routes>
+      </DataProvider>
     </div>
   );
 }
