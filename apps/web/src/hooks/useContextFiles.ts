@@ -1,20 +1,29 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { ContextFile } from "@content-studio/shared";
 import { api } from "../lib/api";
 
 export function useContextFiles(projectId: string | null) {
   const [files, setFiles] = useState<ContextFile[]>([]);
   const [loading, setLoading] = useState(false);
+  const currentProjectRef = useRef(projectId);
+
+  useEffect(() => {
+    currentProjectRef.current = projectId;
+  }, [projectId]);
 
   const fetchFiles = useCallback(async () => {
     if (!projectId) {
       setFiles([]);
       return;
     }
+    const fetchingFor = projectId;
     setLoading(true);
     const res = await api.get<ContextFile[]>(`/projects/${projectId}/context`);
-    setFiles(res.data ?? []);
-    setLoading(false);
+    // Only update if we're still on the same project
+    if (currentProjectRef.current === fetchingFor) {
+      setFiles(res.data ?? []);
+      setLoading(false);
+    }
   }, [projectId]);
 
   useEffect(() => {
