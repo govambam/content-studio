@@ -3,8 +3,10 @@ import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
 import { KanbanBoard } from "./components/KanbanBoard";
 import { ExpandedCardView } from "./components/ExpandedCardView";
+import { ContextPanel } from "./components/ContextPanel";
 import { useProjects } from "./hooks/useProjects";
 import { useCards } from "./hooks/useCards";
+import { useContextFiles } from "./hooks/useContextFiles";
 import { api } from "./lib/api";
 
 function App() {
@@ -12,7 +14,9 @@ function App() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const [showContext, setShowContext] = useState(false);
   const { cards, refetch: refetchCards } = useCards(activeProjectId);
+  const { files: contextFiles, uploadFile, deleteFile } = useContextFiles(activeProjectId);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
@@ -24,6 +28,7 @@ function App() {
         onSelectProject={(id) => {
           setActiveProjectId(id);
           setExpandedCardId(null);
+          setShowContext(false);
         }}
         onNewProject={() => setShowNewProject(true)}
       />
@@ -35,6 +40,7 @@ function App() {
           flexDirection: "column",
           background: "var(--bg-primary)",
           overflow: "hidden",
+          position: "relative",
         }}
       >
         {activeProject ? (
@@ -89,8 +95,9 @@ function App() {
 
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
+                  onClick={() => setShowContext(!showContext)}
                   style={{
-                    background: "var(--bg-surface)",
+                    background: showContext ? "var(--bg-secondary)" : "var(--bg-surface)",
                     color: "var(--text-secondary)",
                     border: "1px solid var(--rule-faint)",
                     borderRadius: "0",
@@ -100,7 +107,7 @@ function App() {
                     fontFamily: "var(--font-sans)",
                   }}
                 >
-                  Context (0)
+                  Context ({contextFiles.length})
                 </button>
                 <button
                   style={{
@@ -115,7 +122,6 @@ function App() {
                   }}
                   onClick={async () => {
                     await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
-                    // Poll for new cards after a delay
                     setTimeout(() => refetchCards(), 5000);
                   }}
                 >
@@ -138,6 +144,16 @@ function App() {
               <KanbanBoard
                 cards={cards}
                 onCardClick={setExpandedCardId}
+              />
+            )}
+
+            {/* Context panel slide-over */}
+            {showContext && (
+              <ContextPanel
+                files={contextFiles}
+                onUpload={uploadFile}
+                onDelete={deleteFile}
+                onClose={() => setShowContext(false)}
               />
             )}
           </>
