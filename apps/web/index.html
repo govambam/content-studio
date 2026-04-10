@@ -6,10 +6,34 @@
     <title>Content Studio — Macroscope</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Non-render-blocking font load. The `media="print"` + `onload`
+      pattern lets the browser download the stylesheet without holding
+      up first paint; once it arrives we switch the media query back to
+      `all` so the fonts actually apply. The `<noscript>` fallback
+      restores the blocking load for the rare JS-off case so layout
+      doesn't FOUT into system fonts forever.
+
+      JetBrains Mono trimmed to a single 400 weight (previously 400;500)
+      since no code block sets an explicit mono weight beyond regular.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400&display=swap"
     />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400&display=swap"
+      />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>
