@@ -88,6 +88,14 @@ export function AssetsSection({
     if (mime === "text/markdown") {
       try {
         const res = await fetch(urlRes.url);
+        if (!res.ok) {
+          if (previewRequestRef.current !== asset.id) return;
+          setPreviewContent({
+            kind: "error",
+            message: `fetch failed: ${res.status} ${res.statusText}`,
+          });
+          return;
+        }
         const text = await res.text();
         if (previewRequestRef.current !== asset.id) return;
         setPreviewContent({ kind: "markdown", body: text });
