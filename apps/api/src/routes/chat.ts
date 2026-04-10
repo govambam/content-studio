@@ -78,13 +78,15 @@ chat.post("/cards/:cardId/chat", async (c) => {
     .select("*")
     .eq("project_id", card.project_id);
 
-  // Get chat history for context
-  const { data: history } = await supabase
+  // Get most recent 20 messages for context (descending, then reverse)
+  const { data: historyDesc } = await supabase
     .from("chat_messages")
     .select("role, content")
     .eq("card_id", cardId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(20);
+
+  const history = (historyDesc ?? []).reverse();
 
   // Build system prompt with card context
   const activeTab = body.active_tab ?? "details";
@@ -106,7 +108,7 @@ chat.post("/cards/:cardId/chat", async (c) => {
   systemPrompt += `\n\n## Instructions\n${buildChatPrompt(activeTab)}`;
 
   // Build messages array for Claude (full conversation history)
-  const messages = (history ?? []).map((m) => ({
+  const messages = history.map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
