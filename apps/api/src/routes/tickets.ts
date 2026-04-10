@@ -6,6 +6,7 @@ import {
   createTicketSchema,
   idParam,
   projectIdParam,
+  reorderTicketsSchema,
   ticketIdParam,
   updateTicketSchema,
 } from "../lib/schemas.js";
@@ -175,6 +176,38 @@ tickets.post("/projects/:projectId/tickets", async (c) => {
   await writeActivityEvent(data.id, "ticket_created", {}, clientId, c.get("logger"));
 
   return c.json({ data, error: null } satisfies ApiResponse<Ticket>, 201);
+});
+
+// Atomic reorder: rewrite status + sort_order for every ticket in the
+// given column in one round trip. Replaces the N-PUT drag-end pattern.
+tickets.post("/projects/:projectId/tickets/reorder", async (c) => {
+  const params = parseParams(c, projectIdParam);
+  if (!params.ok) return params.response;
+  const projectId = params.data.projectId;
+  const parsed = await parseBody(c, reorderTicketsSchema);
+  if (!parsed.ok) return parsed.response;
+  const { status, ticketIds } = parsed.data;
+  const clientId = c.req.header("x-client-id") ?? null;
+
+  const { error } = await supabase.rpc("reorder_tickets", {
+    p_project_id: projectId,
+    p_status: status,
+    p_ticket_ids: ticketIds,
+    p_client_id: clientId,
+  });
+
+  if (error) {
+    c.get("logger").error(
+      { err: error.message, projectId, status, count: ticketIds.length },
+      "reorder_tickets_failed"
+    );
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+
+  return c.json({ data: null, error: null } satisfies ApiResponse<null>);
 });
 
 // Get a single ticket

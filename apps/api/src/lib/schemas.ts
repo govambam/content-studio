@@ -96,6 +96,12 @@ export const createAssetSchema = z.object({
     .min(0, "size_bytes must be a non-negative integer"),
 });
 
+// Reorder
+export const reorderTicketsSchema = z.object({
+  status: contentStatusSchema,
+  ticketIds: z.array(uuidSchema).max(500),
+});
+
 // Params
 export const idParam = z.object({ id: uuidSchema });
 export const ticketIdParam = z.object({ ticketId: uuidSchema });
