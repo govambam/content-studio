@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
 import { NewIdeaModal } from "./components/NewIdeaModal";
+import { ContextModal } from "./components/ContextModal";
 import { KanbanBoard } from "./components/KanbanBoard";
 import { ExpandedCardView } from "./components/ExpandedCardView";
 import { useProjects } from "./hooks/useProjects";
@@ -15,6 +16,7 @@ function App() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [showNewIdea, setShowNewIdea] = useState(false);
+  const [showContext, setShowContext] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const { cards, refetch: refetchCards } = useCards(activeProjectId);
   const { files: contextFiles, uploadFile, deleteFile } = useContextFiles(activeProjectId);
@@ -26,6 +28,7 @@ function App() {
       if (e.key === "Escape") {
         if (showNewProject) setShowNewProject(false);
         else if (showNewIdea) setShowNewIdea(false);
+        else if (showContext) setShowContext(false);
         else if (expandedCardId) {
           setExpandedCardId(null);
           refetchCards();
@@ -34,7 +37,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showNewProject, showNewIdea, expandedCardId, refetchCards]);
+  }, [showNewProject, showNewIdea, showContext, expandedCardId, refetchCards]);
 
   const handleCreateIdea = async (data: { title: string; summary: string; content_type: ContentType }) => {
     if (!activeProject) return;
@@ -119,21 +122,38 @@ function App() {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => setShowNewIdea(true)}
-                style={{
-                  background: "var(--text-primary)",
-                  color: "#FFFFFF",
-                  border: "none",
-                  borderRadius: "0",
-                  padding: "8px 16px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  fontFamily: "var(--font-sans)",
-                }}
-              >
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={() => setShowContext(true)}
+                  style={{
+                    background: "var(--bg-surface)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--rule-faint)",
+                    borderRadius: "0",
+                    padding: "8px 14px",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
+                  Context ({contextFiles.length})
+                </button>
+                <button
+                  onClick={() => setShowNewIdea(true)}
+                  style={{
+                    background: "var(--text-primary)",
+                    color: "#FFFFFF",
+                    border: "none",
+                    borderRadius: "0",
+                    padding: "8px 16px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
                 + Idea
               </button>
+              </div>
             </header>
 
             {expandedCardId ? (
@@ -186,6 +206,15 @@ function App() {
           onClose={() => setShowNewIdea(false)}
           onCreate={handleCreateIdea}
           onGenerate={handleGenerateIdeas}
+        />
+      )}
+
+      {showContext && activeProject && (
+        <ContextModal
+          files={contextFiles}
+          onUpload={uploadFile}
+          onDelete={deleteFile}
+          onClose={() => setShowContext(false)}
         />
       )}
     </div>
