@@ -203,6 +203,18 @@ projects.put("/:id", async (c) => {
     labelIds?: string[];
   }>();
 
+  // Verify the project exists before touching anything. Without this,
+  // Supabase's `update().eq(id)` succeeds silently with 0 rows affected
+  // when the id does not exist, and we would return a misleading 500
+  // from `loadProjectById` returning null below.
+  const existing = await loadProjectById(id);
+  if (!existing) {
+    return c.json(
+      { data: null, error: "not found" } satisfies ApiResponse<null>,
+      404
+    );
+  }
+
   const clientId = c.req.header("x-client-id") ?? null;
 
   const patch: Record<string, unknown> = { updated_by_client: clientId };
@@ -217,15 +229,18 @@ projects.put("/:id", async (c) => {
     .eq("id", id);
 
   if (updateError) {
-    const status = updateError.code === "PGRST116" ? 404 : 500;
     return c.json(
       { data: null, error: updateError.message } satisfies ApiResponse<null>,
-      status
+      500
     );
   }
 
-  // Replace label set if labelIds was provided
+  // Replace label set if labelIds was provided. Snapshot the prior set so
+  // we can restore it if the new insert fails — otherwise a bad label id
+  // would leave the project unlabeled.
   if (body.labelIds) {
+    const priorLabelIds = existing.labels.map((l) => l.id);
+
     const { error: delError } = await supabase
       .from("project_labels")
       .delete()
@@ -245,6 +260,14 @@ projects.put("/:id", async (c) => {
         .from("project_labels")
         .insert(rels);
       if (relError) {
+        // Restore the prior label set best-effort.
+        if (priorLabelIds.length > 0) {
+          const restoreRels = priorLabelIds.map((label_id) => ({
+            project_id: id,
+            label_id,
+          }));
+          await supabase.from("project_labels").insert(restoreRels);
+        }
         return c.json(
           { data: null, error: relError.message } satisfies ApiResponse<null>,
           500

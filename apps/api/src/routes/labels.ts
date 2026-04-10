@@ -78,6 +78,16 @@ labels.put("/:id", async (c) => {
   if ("name" in body) sanitized.name = body.name;
   if ("color" in body) sanitized.color = body.color;
 
+  if (Object.keys(sanitized).length === 0) {
+    return c.json(
+      {
+        data: null,
+        error: "at least one field (name or color) is required",
+      } satisfies ApiResponse<null>,
+      400
+    );
+  }
+
   const { data, error } = await supabase
     .from("labels")
     .update(sanitized)
