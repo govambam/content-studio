@@ -1,215 +1,115 @@
 # Content Studio — Setup Guide
 
-This guide walks through everything needed to bootstrap the Content Studio project. Complete these steps before starting any implementation work.
+This guide covers the tools, accounts, and environment variables needed to run Content Studio locally and in production.
 
 ---
 
 ## 1. Prerequisites
 
-### 1.1 CLI Tools
+### CLI tools
 
-Ensure these are installed and authenticated on the machine running Claude Code:
+| Tool | Install | Auth | Verify |
+|------|---------|------|--------|
+| GitHub CLI | `brew install gh` | `gh auth login` | `gh auth status` |
+| Railway CLI | `npm install -g @railway/cli` | `railway login` | `railway whoami` |
+| Supabase CLI | `brew install supabase/tap/supabase` | `supabase login` | `supabase projects list` |
+| Node.js (v20+) | `brew install node` | — | `node --version` |
 
-| Tool | Install | Auth Command | Verify |
-|------|---------|-------------|--------|
-| **GitHub CLI** | `brew install gh` | `gh auth login` | `gh auth status` |
-| **Railway CLI** | `npm install -g @railway/cli` | `railway login` | `railway whoami` |
-| **Supabase CLI** | `brew install supabase/tap/supabase` | `supabase login` | `supabase projects list` |
-| **Node.js** | `brew install node` (v20+) | n/a | `node --version` |
+### Accounts
 
-### 1.2 Accounts
+- **GitHub** with permission to push to the `content-studio` repo.
+- **Railway** with access to the project hosting `web` and `api`.
+- **Supabase** with access to the project backing the app.
 
-- **GitHub:** Account with permission to create repos under the target org/user.
-- **Railway:** Account with a team/project space.
-- **Supabase:** Account with permission to create projects.
-- **Anthropic:** API key for Claude (for the app's AI worker).
+No Anthropic key is required. Phase 1 removed all AI features.
 
 ---
 
 ## 2. Environment Variables
 
-### 2.1 For the CLI tools (local machine / Claude Code session)
+### Local CLI session
 
-These need to be available in the terminal session:
+| Variable | Purpose |
+|----------|---------|
+| `GITHUB_TOKEN` | Set automatically by `gh auth login` |
+| `RAILWAY_TOKEN` | Set automatically by `railway login` |
+| `SUPABASE_ACCESS_TOKEN` | Set automatically by `supabase login` |
 
-| Variable | Purpose | How to Get |
-|----------|---------|-----------|
-| `GITHUB_TOKEN` | GitHub CLI auth | `gh auth login` sets this automatically, or generate a PAT at github.com/settings/tokens |
-| `RAILWAY_TOKEN` | Railway CLI auth | `railway login` sets this automatically, or generate at railway.app/account/tokens |
-| `SUPABASE_ACCESS_TOKEN` | Supabase CLI auth | `supabase login` sets this automatically, or generate at supabase.com/dashboard/account/tokens |
+### Application runtime (local `.env` and Railway services)
 
-### 2.2 For the app (Railway environment variables)
+| Variable | Purpose | Where to find it |
+|----------|---------|------------------|
+| `SUPABASE_URL` | Supabase project URL | Supabase dashboard → Project Settings → API |
+| `SUPABASE_ANON_KEY` | Public anon key (used by the frontend) | Same place |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (backend only — never ship to the frontend) | Same place |
+| `FRONTEND_URL` | CORS origin for the API | The deployed Vite URL, or `http://localhost:5173` in dev |
+| `NODE_ENV` | `development` locally, `production` on Railway | — |
 
-These will be set on the Railway project so the deployed app can use them:
+Copy `.env.example` to `.env` and fill in the Supabase keys to run locally.
 
-| Variable | Purpose | How to Get |
-|----------|---------|-----------|
-| `ANTHROPIC_API_KEY` | Claude API for the AI worker | Generate at console.anthropic.com/settings/keys |
-| `SUPABASE_URL` | Supabase project URL | From Supabase dashboard → Project Settings → API |
-| `SUPABASE_ANON_KEY` | Supabase public anon key (frontend) | From Supabase dashboard → Project Settings → API |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service key (backend only, never expose to frontend) | From Supabase dashboard → Project Settings → API |
-| `FRONTEND_URL` | Frontend URL for CORS | Railway-assigned URL after first deploy |
-| `NODE_ENV` | Runtime environment | Set to `production` on Railway |
+---
 
-### 2.3 Checklist before starting
+## 3. Local Development
 
-- [ ] `gh auth status` returns authenticated
+```bash
+# From the repo root
+npm install
+
+# Apply migrations to a local or linked Supabase project
+supabase db reset        # nuke and re-apply all migrations
+# or
+supabase db push         # push new migrations to a linked remote project
+
+# Run the API (port 3001)
+npm run dev:api
+
+# Run the web app (port 5173)
+npm run dev:web
+```
+
+Open `http://localhost:5173`. The web app expects the API at the path `/api` or at `VITE_API_URL` if set.
+
+---
+
+## 4. Railway Deployment
+
+The Railway project has two services:
+
+1. **`web`** — root directory `apps/web`, build command `npm run build -w apps/web`, start command served by Vite's preview or a static host.
+2. **`api`** — root directory `apps/api`, build command `npm run build -w apps/api`, start command `node dist/index.js`.
+
+Both services auto-deploy on merge to `main`. Set the application env vars from §2 on each service. `FRONTEND_URL` on the `api` service must match the `web` service's public URL.
+
+There is no worker service. The previous `apps/worker` workspace was removed in Phase 1.
+
+---
+
+## 5. Supabase
+
+The database has two tables (`projects`, `cards`) plus a single enum pair (`stage`, `content_type`). All migrations live in `supabase/migrations/` and are applied in timestamp order.
+
+Realtime is enabled on the `cards` table so the frontend can subscribe to live board updates. RLS is on with permissive `authenticated` + `service_role` policies — the app assumes trusted users only.
+
+---
+
+## 6. Macroscope Configuration
+
+Macroscope reviews every PR automatically. Verify:
+
+1. The Macroscope GitHub app is installed on the repo.
+2. It runs on PR creation and on every subsequent push.
+3. Reviews complete within 2–10 minutes.
+
+If a review hasn't arrived after 15 minutes, the `macroscope-review` skill will time out and ask for human help.
+
+---
+
+## 7. Verification Checklist
+
+- [ ] `gh auth status` authenticated
 - [ ] `railway whoami` returns your account
 - [ ] `supabase projects list` works
-- [ ] You have an Anthropic API key ready
-- [ ] You know which GitHub org/user to create the repo under
-
----
-
-## 3. Project Bootstrap Sequence
-
-Run these steps in order. Each step should succeed before moving to the next.
-
-### Step 1: Create GitHub Repository
-
-```bash
-# Create the repo
-gh repo create <org>/content-studio --public --description "Content pipeline tool for Macroscope" --clone
-
-# Or if personal account:
-gh repo create content-studio --public --description "Content pipeline tool for Macroscope" --clone
-
-cd content-studio
-```
-
-### Step 2: Initialize Monorepo
-
-```bash
-# Initialize root package.json with npm workspaces
-npm init -y
-# Edit package.json to add workspaces: ["apps/*", "packages/*"]
-
-# Create workspace directories
-mkdir -p apps/web apps/api apps/worker packages/shared supabase/migrations docs
-
-# Initialize each workspace package
-cd apps/web && npm init -y && cd ../..
-cd apps/api && npm init -y && cd ../..
-cd apps/worker && npm init -y && cd ../..
-cd packages/shared && npm init -y && cd ../..
-```
-
-### Step 3: Create Supabase Project
-
-```bash
-# Create the Supabase project (or link to existing)
-supabase projects create content-studio --org-id <your-org-id> --region us-east-1
-
-# Or link to an existing project:
-supabase link --project-ref <project-ref>
-
-# Initialize local Supabase config
-supabase init
-```
-
-After creation, grab these from the Supabase dashboard:
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-
-### Step 4: Create Railway Project
-
-```bash
-# Create a new Railway project
-railway init
-
-# Or link to existing:
-railway link
-```
-
-Then in the Railway dashboard (or via CLI):
-1. Create three services: `web`, `api`, `worker`.
-2. Connect the GitHub repo for automatic deployments.
-3. Set each service's root directory: `apps/web`, `apps/api`, `apps/worker`.
-4. Set build commands and start commands per service.
-5. Add all app environment variables (§2.2) to the Railway project.
-
-### Step 5: Configure Railway ↔ GitHub Auto-Deploy
-
-In the Railway dashboard for each service:
-1. Go to Settings → Source.
-2. Connect to the GitHub repo.
-3. Set the deploy trigger to: **Deploy on merge to `main`**.
-4. Optionally enable PR preview deploys for testing.
-
-### Step 6: Push Initial Scaffolding
-
-```bash
-# Copy project docs into the repo
-cp PRODUCT-SPEC.md DESIGN-SYSTEM.md AGENTS.md SETUP-GUIDE.md docs/
-cp CLAUDE.md .
-
-git add -A
-git commit -m "Initial project scaffolding"
-git push origin main
-```
-
-This first commit goes directly to `main` (the only exception to the PR rule). All subsequent work must go through PRs.
-
----
-
-## 4. Supabase Schema Setup
-
-The first real PR (PR #2 after scaffolding) creates the database schema. The migration file should implement the data model from `PRODUCT-SPEC.md` §3.
-
-```bash
-# Create a new migration
-supabase migration new initial_schema
-
-# Edit the generated file in supabase/migrations/
-# Then apply locally:
-supabase db reset
-
-# Push to remote:
-supabase db push
-```
-
----
-
-## 5. MCP Configuration
-
-### Supabase MCP (Recommended)
-
-Supabase has an MCP server available that can be connected in Claude's desktop app or Claude Code. This gives Claude direct access to manage the Supabase project (create tables, run queries, manage auth) without going through the CLI.
-
-**To connect:** Add the Supabase MCP server in your Claude settings with your project URL and service role key.
-
-**However:** For this project, the Supabase CLI is sufficient for all operations (migrations, type generation, local dev). The MCP is optional — use it if you want Claude to have direct database access for debugging.
-
-### GitHub and Railway
-
-No MCP servers available. Use the CLI tools (`gh`, `railway`) which are fully capable and well-documented.
-
----
-
-## 6. Verification Checklist
-
-Before starting PR #1, verify:
-
-- [ ] GitHub repo exists and is cloneable
-- [ ] `gh pr list` works against the repo
-- [ ] Railway project exists with three services configured
-- [ ] Railway is connected to the GitHub repo for auto-deploy on `main`
-- [ ] Supabase project exists and is accessible
-- [ ] All environment variables are set on Railway
-- [ ] `CLAUDE.md` is in the repo root
-- [ ] `PRODUCT-SPEC.md` and `DESIGN-SYSTEM.md` are in `docs/`
-- [ ] You can run `npm install` at the root without errors
-- [ ] Macroscope is configured to review PRs on this repo
-
----
-
-## 7. Macroscope Configuration
-
-Ensure Macroscope is set up to automatically review PRs on the Content Studio repo:
-
-1. Install the Macroscope GitHub app on the repo (if not already org-wide).
-2. Verify it triggers on PR creation and on subsequent pushes.
-3. Confirm review comments appear within 2–10 minutes of a push.
-
-If Macroscope is already configured at the org level, no additional setup is needed — it will automatically pick up new repos.
+- [ ] `npm install` from the repo root completes without errors
+- [ ] `npx tsc -b` is clean
+- [ ] `npm run dev:api` starts on port 3001 and `/api/health` returns `{status:"ok"}`
+- [ ] `npm run dev:web` serves the board at `http://localhost:5173`

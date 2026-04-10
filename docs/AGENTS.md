@@ -4,193 +4,104 @@
 
 Content Studio is built by a lean team: **two agents** (PM and Engineer) supported by **two skills** (Design QA and Macroscope Review). Agents handle open-ended judgment and coordination. Skills handle structured, repeatable workflows.
 
-**Why this split:** The Macroscope review loop and design QA checks are highly structured processes — check → classify → report. They don't need a dedicated agent with its own context and handoff overhead. A skill the PM invokes directly is faster, more consistent, and portable to future projects.
+In practice the "team" is one Claude Code session acting as the PM, which orchestrates implementation, invokes skills, and runs the PR lifecycle end-to-end.
 
 ---
 
 ## Agents
 
-### 1. Project Manager (PM)
+### Project Manager (PM)
 
-**Responsibility:** Orchestration, planning, task breakdown, PR lifecycle management, skill invocation.
-
-**What it does:**
-- Reads `PRODUCT-SPEC.md` and breaks Phase 1 into a sequence of PRs (see `CLAUDE.md` for the PR plan).
-- For each PR, writes a clear scope document: what's included, what's not, acceptance criteria.
-- Creates the feature branch and initiates work by delegating to the Engineer.
-- After the Engineer completes frontend work, runs the **Design QA skill** (`skills/design-qa.md`).
-- If Design QA finds violations, delegates fixes to the Engineer and re-runs the skill.
-- Once Design QA passes, creates the PR via `gh pr create`.
-- Runs the **Macroscope Review skill** (`skills/macroscope-review.md`), which handles waiting, reading, and triaging findings.
-- If the skill reports valid bugs, delegates fixes to the Engineer, then re-runs the skill.
-- When the skill reports "CLEAN," merges the PR.
-- Tracks overall progress and reports status.
-
-**Tools it uses:** `gh`, `git`, file read/write, skill invocation.
-
-**Does NOT:** Write application code or make design decisions directly.
-
----
-
-### 2. Engineer
-
-**Responsibility:** Writing all application code — frontend, backend, database, worker.
+**Responsibility:** Orchestration, planning, PR lifecycle, skill invocation.
 
 **What it does:**
-- Receives a scoped task from the PM (e.g., "Implement card CRUD API endpoints per PRODUCT-SPEC.md §6.3").
-- Reads the relevant sections of `PRODUCT-SPEC.md`, `DESIGN-SYSTEM.md`, and any existing code.
-- Implements the feature: writes TypeScript, React components, API routes, database migrations, prompts.
-- Runs the dev server and verifies the feature works locally.
-- Commits clean, well-structured code with descriptive commit messages.
-- When the PM relays Design QA violations or Macroscope bug fixes, implements ALL fixes in a single commit.
-- Hands back to PM when implementation is complete.
+- Reads the active roadmap (`../ROADMAP.md` in the parent directory) and `docs/PRODUCT-SPEC.md` to scope each PR.
+- Creates the feature branch, implements the change, commits clean history.
+- For any PR that touches frontend files, runs the **Design QA skill** (`skills/design-qa.md`) before opening the PR and fixes any violations.
+- Opens the PR via `gh pr create` with a description that documents the change and any **Plan deviations**.
+- Runs the **Macroscope Review skill** (`skills/macroscope-review.md`), which polls for the review, reads findings, triages them, and returns a structured report.
+- If findings exist, fixes all valid bugs in a single commit, pushes, and re-runs the skill. Loops until clean.
+- Merges the PR with `gh pr merge --squash --delete-branch` and moves on.
 
-**Tools it uses:** `npm`, `npx`, `supabase`, file read/write/edit, dev server.
+**Does NOT:**
+- Ask the human whether to run a skill — just runs it.
+- Skip the Macroscope wait loop.
+- Merge a PR without a clean review.
 
-**Does NOT:** Create PRs, merge branches, interact with GitHub, or run review skills.
+### Engineer
+
+In the current single-session model, the PM is also the Engineer. The distinction exists so that if the team splits, the PM can delegate cleanly. The Engineer's job is to write code, run local verification (`npx tsc -b`, `npm run build`), and hand back when the diff is ready for review.
 
 ---
 
 ## Skills
 
-### Design QA Skill
+### Design QA (`skills/design-qa.md`)
 
-**File:** `skills/design-qa.md`
+**When:** After completing frontend work, before creating the PR.
 
-**When to invoke:** After the Engineer completes any PR that includes frontend changes, BEFORE creating the PR.
+**What:** Reviews changed frontend files against `docs/DESIGN-SYSTEM.md`. Checks color tokens, typography, border radii, shadows/blurs (banned), spacing, layout structure, and component specs. Returns PASS/FAIL with specific violations and fix instructions.
 
-**What it does:**
-1. Reviews all changed frontend files against `DESIGN-SYSTEM.md`.
-2. Checks every design token, typography rule, border-radius exception, shadow prohibition, spacing value, and component spec.
-3. Returns a PASS/FAIL report with specific violations, file locations, and fix instructions.
+**Loop:** FAIL → fix in one commit → re-run → repeat until PASS.
 
-**PM invokes it by:** Reading `skills/design-qa.md` and following its steps against the changed files.
+### Macroscope Review (`skills/macroscope-review.md`)
 
-**Loop:** If FAIL → PM sends violation list to Engineer → Engineer fixes in one commit → PM re-runs skill → repeat until PASS.
+**When:** Immediately after creating a PR or pushing fix commits.
 
----
+**What:** Polls the `Macroscope - Correctness Check` check run on the head commit every 30 seconds until it completes (timeout: 15 minutes). Reads inline review comments, triages each as valid bug / false positive / style preference, and returns a triage report.
 
-### Macroscope Review Skill
+**Loop:** Findings → fix all valid bugs in one commit → push → re-run the skill on the new head commit → repeat until CLEAN.
 
-**File:** `skills/macroscope-review.md`
-
-**When to invoke:** Immediately after creating a PR or after the Engineer pushes fix commits to the PR branch.
-
-**What it does:**
-1. **Waits** for Macroscope to complete its review by polling `gh api` every 30 seconds (reviews take 1–10 minutes).
-2. **Reads** all review findings once the review is detected.
-3. **Triages** each finding as valid bug, false positive, or style preference.
-4. **Returns** a structured report with fix instructions for valid bugs.
-
-**PM invokes it by:** Reading `skills/macroscope-review.md` and following its steps with the current PR number.
-
-**Loop:** If FIXES NEEDED → PM sends fix list to Engineer → Engineer fixes in one commit → Engineer pushes → PM re-runs skill from Step 1 → repeat until CLEAN.
-
-**Waiting behavior:** The skill owns the entire wait cycle. It polls every 30 seconds and times out at 15 minutes. The PM does not need to manually check — the skill handles it. This prevents premature merges and ensures every review pass is fully processed.
+**Critical rule:** One commit per fix pass. Do not push fixes incrementally — each push triggers a new review and creates noise.
 
 ---
 
-## Workflow: Building a Feature
+## Workflow
 
 ```
-PM: Scopes the PR, writes task description
-                ↓
-PM → Engineer: "Implement {task}"
-                ↓
-Engineer: Implements the feature, commits
-                ↓
-Engineer → PM: "Implementation complete"
-                ↓
-        ┌── Has frontend changes? ──┐
-        │ YES                       │ NO
-        ↓                           │
-PM: Runs Design QA skill            │
-        ↓                           │
-    ┌─ PASS? ──┐                    │
-    │ NO       │ YES                │
-    ↓          │                    │
-PM → Engineer  │                    │
-fixes in one   │                    │
-commit, re-run │                    │
-    └──────────┘                    │
-        ↓ ◄─────────────────────────┘
-PM: Creates PR via `gh pr create`
+Scope PR from roadmap
         ↓
-PM: Runs Macroscope Review skill
-    (skill waits for review automatically)
+Implement the change
         ↓
-    ┌─ CLEAN? ─┐
-    │ NO       │ YES
-    ↓          ↓
-PM → Engineer  PM: Merges PR
-fixes in one   PM: Moves to next PR
-commit, push,
-re-run skill
-    └──────────┘
+Frontend touched? ── YES → Run Design QA → fix violations → re-run until PASS
+        │
+        NO
+        ↓
+gh pr create (with Plan deviations section if applicable)
+        ↓
+Run Macroscope Review skill (polls automatically)
+        ↓
+CLEAN? ── NO → Fix all findings in one commit → push → re-run
+        │
+        YES
+        ↓
+gh pr merge --squash --delete-branch
+        ↓
+Next PR
 ```
 
 ---
 
 ## PR Scope Guidelines
 
-Each PR should be:
+- **Self-contained.** Each PR is a reviewable unit that leaves `main` in a working state.
+- **Focused.** One concern per PR. Backend and frontend sweeps in the same phase can ship separately.
+- **Sized for review.** Aim for under ~600 lines of meaningful diff. Splits are fine.
+- **Deviations documented.** Every PR description has a `## Plan deviations` section when the work departs from the planning doc. Say what you changed and why.
 
-- **Self-contained:** It adds a complete, testable unit of functionality.
-- **Focused:** One concern per PR. Don't mix backend API work with frontend components.
-- **Small enough to review:** Aim for under 500 lines of meaningful code changes (excluding generated files).
-- **Documented:** PR description explains what was built, what sections of PRODUCT-SPEC.md it implements, and any decisions made.
-
-### PR Description Template
+### PR description template
 
 ```markdown
-## What
+## Summary
+What this PR does, in a few bullets.
 
-Brief description of what this PR implements.
+## Plan deviations
+What differs from the roadmap / spec and why. "None" is fine if nothing deviated.
 
-## Spec Reference
+## Design-QA self-check
+PASS / FAIL, violations found, violations fixed. Skip this section for non-frontend PRs.
 
-Which sections of PRODUCT-SPEC.md this covers (e.g., §3.1 Core Entities, §6.1 Projects API).
-
-## Changes
-
-- List of significant changes
-
-## Design System Compliance
-
-- [ ] Design QA skill passed on all frontend files
-- [ ] No violations found (or list exceptions with justification)
-
-## Testing
-
-How this was verified (dev server, API calls, etc.)
+## Test plan
+- [x] Local verification steps
+- [ ] Anything that still needs to happen before merge
 ```
-
----
-
-## Agent Communication Protocol
-
-The PM orchestrates everything. The Engineer receives tasks and returns results. Skills are invoked by the PM inline — they don't require handoffs.
-
-**PM → Engineer (task delegation):**
-
-```
-@Engineer: Please implement [specific task].
-- Scope: [what to build]
-- Spec reference: PRODUCT-SPEC.md §[section]
-- Design reference: DESIGN-SYSTEM.md §[section] (for UI work)
-- Files to create/modify: [list]
-- Acceptance criteria: [what "done" looks like]
-```
-
-**PM → Engineer (fix delegation after Design QA or Macroscope):**
-
-```
-@Engineer: Fix the following issues (commit all fixes together):
-1. {file}:{line} — {what to fix}
-2. {file}:{line} — {what to fix}
-Then push to the PR branch.
-```
-
-**PM invoking a skill:**
-
-No special syntax. The PM reads the skill file and executes its steps directly. The skill's output (the triage report or QA report) becomes the PM's input for the next decision.
