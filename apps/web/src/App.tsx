@@ -26,10 +26,9 @@ function App() {
     if (!activeProject || generating) return;
     setGenerating(true);
     await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
-    // Poll for new cards, then stop
-    await new Promise((r) => setTimeout(r, 5000));
-    await refetchCards();
-    await new Promise((r) => setTimeout(r, 5000));
+    // Realtime subscription will auto-refresh cards when they're created.
+    // Wait a bit then reset the generating state.
+    await new Promise((r) => setTimeout(r, 10000));
     await refetchCards();
     setGenerating(false);
   };

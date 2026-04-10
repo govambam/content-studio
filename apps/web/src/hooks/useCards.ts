@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Card } from "@content-studio/shared";
 import { api } from "../lib/api";
+import { supabase } from "../lib/supabase";
 
 interface CardWithArtifacts extends Card {
   artifacts: Array<{ id: string; type: string; status: string }>;
@@ -30,6 +31,32 @@ export function useCards(projectId: string | null) {
   useEffect(() => {
     fetchCards();
   }, [fetchCards]);
+
+  // Subscribe to Realtime changes on cards table
+  useEffect(() => {
+    if (!projectId || !supabase) return;
+
+    const channel = supabase
+      .channel(`cards:${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cards",
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          // Refetch on any change to get full card data with artifacts
+          fetchCards();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase?.removeChannel(channel);
+    };
+  }, [projectId, fetchCards]);
 
   const updateCard = async (
     cardId: string,
