@@ -14,6 +14,7 @@ export function useContextFiles(projectId: string | null) {
   const fetchFiles = useCallback(async () => {
     if (!projectId) {
       setFiles([]);
+      setLoading(false);
       return;
     }
     const fetchingFor = projectId;
@@ -28,6 +29,11 @@ export function useContextFiles(projectId: string | null) {
 
   useEffect(() => {
     fetchFiles();
+    // Clear state immediately when projectId changes to prevent stale data
+    return () => {
+      setFiles([]);
+      setLoading(false);
+    };
   }, [fetchFiles]);
 
   const uploadFile = async (
