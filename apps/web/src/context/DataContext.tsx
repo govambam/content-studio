@@ -16,6 +16,7 @@ import type {
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { CLIENT_ID } from "../lib/clientId";
+import { track } from "../lib/analytics";
 
 // Shared data context for entities that appear on multiple views and
 // should only be fetched once per session. Previously each view's own
@@ -150,6 +151,7 @@ function useLabelsStore(): LabelsValue {
         setLabels((prev) =>
           [...prev, res.data!].sort((a, b) => a.name.localeCompare(b.name))
         );
+        track("label_created", { label_id: res.data.id, color });
       }
       return res;
     },
@@ -164,6 +166,7 @@ function useLabelsStore(): LabelsValue {
     const res = await api.del<null>(`/labels/${id}`);
     if (!res.error) {
       setLabels((prev) => prev.filter((l) => l.id !== id));
+      track("label_deleted", { label_id: id });
     }
     return res;
   }, []);
@@ -250,6 +253,11 @@ function useProjectsStore(): ProjectsValue {
     const res = await api.post<Project>("/projects", input);
     if (res.data) {
       setProjects((prev) => [...prev, res.data!]);
+      track("project_created", {
+        project_id: res.data.id,
+        label_count: input.labelIds?.length ?? 0,
+        has_description: Boolean(input.description?.trim()),
+      });
     }
     return res;
   }, []);
@@ -259,6 +267,10 @@ function useProjectsStore(): ProjectsValue {
       const res = await api.put<Project>(`/projects/${id}`, input);
       if (res.data) {
         setProjects((prev) => prev.map((p) => (p.id === id ? res.data! : p)));
+        track("project_updated", {
+          project_id: id,
+          fields_changed: Object.keys(input),
+        });
       }
       return res;
     },
@@ -269,6 +281,7 @@ function useProjectsStore(): ProjectsValue {
     const res = await api.del<null>(`/projects/${id}`);
     if (!res.error) {
       setProjects((prev) => prev.filter((p) => p.id !== id));
+      track("project_deleted", { project_id: id });
     }
     return res;
   }, []);

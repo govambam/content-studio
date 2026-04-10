@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { DataProvider } from "./context/DataContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { RouteTracker } from "./components/RouteTracker";
 
 // Route-level code splitting. Each view gets its own chunk so Home no
 // longer pulls react-markdown, the MarkdownEditor, or dnd-kit's Ticket
@@ -69,6 +70,7 @@ function App() {
       <ErrorBoundary>
         <DataProvider>
           <Suspense fallback={<RouteFallback />}>
+            <RouteTracker />
             <Routes>
               <Route path="/" element={<HomeView />} />
               <Route

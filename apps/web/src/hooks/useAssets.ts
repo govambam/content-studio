@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Asset } from "@content-studio/shared";
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
+import { track } from "../lib/analytics";
 
 interface CreateAssetResponse {
   asset: Asset;
@@ -59,6 +60,13 @@ export function useAssets(ticketId: string | null) {
   const uploadAsset = async (file: File): Promise<{ error: string | null }> => {
     if (!ticketId) return { error: "no ticket" };
 
+    const startedAt = performance.now();
+    track("asset_upload_started", {
+      ticket_id: ticketId,
+      mime_type: file.type || "application/octet-stream",
+      size_bytes: file.size,
+    });
+
     // Step 1: create the asset row and get a signed upload URL.
     const createRes = await api.post<CreateAssetResponse>(
       `/tickets/${ticketId}/assets`,
@@ -69,6 +77,10 @@ export function useAssets(ticketId: string | null) {
       }
     );
     if (createRes.error || !createRes.data) {
+      track("asset_upload_failed", {
+        ticket_id: ticketId,
+        reason: createRes.error ?? "create failed",
+      });
       return { error: createRes.error ?? "create failed" };
     }
 
@@ -88,13 +100,17 @@ export function useAssets(ticketId: string | null) {
       if (!putRes.ok) {
         // Cleanup the orphan row server-side.
         await api.del<null>(`/assets/${asset.id}`);
+        track("asset_upload_failed", {
+          ticket_id: ticketId,
+          reason: `${putRes.status} ${putRes.statusText}`,
+        });
         return { error: `upload failed: ${putRes.status} ${putRes.statusText}` };
       }
     } catch (err) {
       await api.del<null>(`/assets/${asset.id}`);
-      return {
-        error: err instanceof Error ? err.message : String(err),
-      };
+      const message = err instanceof Error ? err.message : String(err);
+      track("asset_upload_failed", { ticket_id: ticketId, reason: message });
+      return { error: message };
     }
 
     // Step 3: tell the API the bytes landed so it can write the
@@ -104,6 +120,11 @@ export function useAssets(ticketId: string | null) {
     await api.post<null>(`/assets/${asset.id}/confirm`, {});
 
     await fetchAssets();
+    track("asset_upload_succeeded", {
+      ticket_id: ticketId,
+      asset_id: asset.id,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
     return { error: null };
   };
 
@@ -111,6 +132,7 @@ export function useAssets(ticketId: string | null) {
     const res = await api.del<null>(`/assets/${id}`);
     if (!res.error) {
       setAssets((prev) => prev.filter((a) => a.id !== id));
+      track("asset_deleted", { asset_id: id });
     }
     return res;
   };
