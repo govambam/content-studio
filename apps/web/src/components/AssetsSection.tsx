@@ -82,7 +82,10 @@ export function AssetsSection({
       });
       return;
     }
-    if (asset.mime_type === "text/markdown") {
+    // Normalize mime_type — the DB column defaults to empty string but
+    // older rows or external writes could still leave it nullish.
+    const mime = asset.mime_type ?? "";
+    if (mime === "text/markdown") {
       try {
         const res = await fetch(urlRes.url);
         const text = await res.text();
@@ -95,7 +98,7 @@ export function AssetsSection({
           message: err instanceof Error ? err.message : String(err),
         });
       }
-    } else if (asset.mime_type.startsWith("image/")) {
+    } else if (mime.startsWith("image/")) {
       setPreviewContent({ kind: "image", url: urlRes.url });
     } else {
       // Not previewable — just trigger download.
@@ -435,11 +438,12 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function assetIcon(mime: string): string {
-  if (mime.startsWith("image/")) return "[img]";
-  if (mime === "text/markdown") return "[md]";
-  if (mime === "application/pdf") return "[pdf]";
-  if (mime.startsWith("video/")) return "[vid]";
-  if (mime.startsWith("audio/")) return "[aud]";
+function assetIcon(mime: string | null | undefined): string {
+  const m = mime ?? "";
+  if (m.startsWith("image/")) return "[img]";
+  if (m === "text/markdown") return "[md]";
+  if (m === "application/pdf") return "[pdf]";
+  if (m.startsWith("video/")) return "[vid]";
+  if (m.startsWith("audio/")) return "[aud]";
   return "[file]";
 }
