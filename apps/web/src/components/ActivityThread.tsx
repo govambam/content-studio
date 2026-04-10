@@ -220,47 +220,52 @@ export function ActivityThread({
       </div>
 
       {/* Input area */}
-      <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-        <input
-          type="text"
+      <div style={{ display: "flex", flexDirection: "column", marginTop: "4px" }}>
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSend();
+            if (e.key === "Enter" && e.metaKey) handleSend();
           }}
           placeholder="Leave a comment..."
           disabled={sending}
           style={{
-            flex: 1,
-            padding: "10px 14px",
+            width: "100%",
+            minHeight: "80px",
+            maxHeight: "200px",
+            padding: "12px 14px",
             border: "1px solid var(--rule-faint)",
             borderRadius: "0",
             fontFamily: "var(--font-sans)",
             fontSize: "13px",
+            lineHeight: 1.5,
             background: "var(--bg-surface)",
             outline: "none",
+            resize: "vertical" as const,
           }}
           onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
           onBlur={(e) => (e.target.style.borderColor = "var(--rule-faint)")}
         />
-        <button
-          onClick={handleSend}
-          disabled={!input.trim() || sending}
-          style={{
-            background: "var(--text-primary)",
-            color: "#FFFFFF",
-            border: "none",
-            borderRadius: "0",
-            padding: "10px 16px",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "var(--font-sans)",
-            cursor: !input.trim() || sending ? "default" : "pointer",
-            opacity: !input.trim() || sending ? 0.5 : 1,
-          }}
-        >
-          Send
-        </button>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || sending}
+            style={{
+              background: "var(--text-primary)",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: "0",
+              padding: "8px 16px",
+              fontSize: "12px",
+              fontWeight: 600,
+              fontFamily: "var(--font-sans)",
+              cursor: !input.trim() || sending ? "default" : "pointer",
+              opacity: !input.trim() || sending ? 0.5 : 1,
+            }}
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );

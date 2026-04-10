@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Card, ChatMessage, ContentType, Stage, ContextFile } from "@content-studio/shared";
 import { api } from "../lib/api";
 import { Breadcrumbs } from "./Breadcrumbs";
@@ -6,6 +6,7 @@ import { SubItems } from "./SubItems";
 import { Attachments } from "./Attachments";
 import { ActivityThread } from "./ActivityThread";
 import { TypeBadge } from "./TypeBadge";
+import { PropertiesSidebar } from "./PropertiesSidebar";
 
 interface ExpandedCardViewProps {
   cardId: string;
@@ -33,13 +34,6 @@ interface CardDetail extends Card {
 
 type ViewScope = "details" | "demo-flow" | "script";
 
-const STAGES: { value: Stage; label: string }[] = [
-  { value: "unreviewed", label: "Unreviewed" },
-  { value: "considering", label: "Considering" },
-  { value: "in_production", label: "In Production" },
-  { value: "published", label: "Published" },
-];
-
 const QUICK_ACTIONS: Record<ViewScope, Array<{ label: string; prompt: string }>> = {
   details: [
     { label: "Expand idea", prompt: "Expand on this idea. Add more detail about the target audience, the key visual moments, and why this would resonate with engineering leaders." },
@@ -47,13 +41,13 @@ const QUICK_ACTIONS: Record<ViewScope, Array<{ label: string; prompt: string }>>
   ],
   "demo-flow": [
     { label: "Add more detail", prompt: "Add more detail to each scene. Include specific on-screen elements, transition notes, and timing guidance." },
-    { label: "Suggest B-roll", prompt: "Suggest B-roll shots and visual inserts that would elevate this demo. Think: close-ups, diagram overlays, before/after cuts." },
-    { label: "Restructure scenes", prompt: "Restructure the scene order for better narrative flow. Consider what hooks the viewer and what builds tension." },
+    { label: "Suggest B-roll", prompt: "Suggest B-roll shots and visual inserts that would elevate this demo." },
+    { label: "Restructure scenes", prompt: "Restructure the scene order for better narrative flow." },
   ],
   script: [
     { label: "Punch up the hook", prompt: "Rewrite the opening hook to be more attention-grabbing. The first 5 seconds need to stop the scroll." },
-    { label: "Shorten to 60s", prompt: "Condense this script to fit within 60-90 seconds of spoken narration. Keep the strongest moments, cut everything else." },
-    { label: "Add social copy", prompt: "Write social media copy for posting this video: one version for Twitter (punchy, under 280 chars) and one for LinkedIn (2-3 paragraphs, outcomes-focused)." },
+    { label: "Shorten to 60s", prompt: "Condense this script to fit within 60-90 seconds of spoken narration." },
+    { label: "Add social copy", prompt: "Write social media copy for posting this video: one for Twitter, one for LinkedIn." },
   ],
 };
 
@@ -71,6 +65,8 @@ export function ExpandedCardView({
   const [sending, setSending] = useState(false);
   const [viewScope, setViewScope] = useState<ViewScope>("details");
   const [generatingArtifact, setGeneratingArtifact] = useState<string | null>(null);
+  const [editingSummary, setEditingSummary] = useState<string | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const fetchCard = useCallback(async () => {
     const res = await api.get<CardDetail>(`/cards/${cardId}`);
@@ -80,9 +76,7 @@ export function ExpandedCardView({
     }
   }, [cardId]);
 
-  useEffect(() => {
-    fetchCard();
-  }, [fetchCard]);
+  useEffect(() => { fetchCard(); }, [fetchCard]);
 
   useEffect(() => {
     if (!cardId) return;
@@ -102,6 +96,24 @@ export function ExpandedCardView({
     if (!confirm("Delete this card and all its content?")) return;
     const res = await api.del(`/cards/${cardId}`);
     if (!res.error) { onDelete?.(); onBack(); }
+  };
+
+  const handleSummaryChange = (value: string) => {
+    setEditingSummary(value);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      await api.put(`/cards/${cardId}`, { summary: value });
+      setCard((prev) => prev ? { ...prev, summary: value } : prev);
+    }, 1000);
+  };
+
+  const handleSummaryBlur = async () => {
+    if (editingSummary !== null && saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      await api.put(`/cards/${cardId}`, { summary: editingSummary });
+      setCard((prev) => prev ? { ...prev, summary: editingSummary } : prev);
+      setEditingSummary(null);
+    }
   };
 
   const handleGenerateArtifact = async (artifactType: string) => {
@@ -168,6 +180,7 @@ export function ExpandedCardView({
   }
 
   const currentArtifact = viewScope !== "details" ? card.artifacts.find((a) => a.type === viewScope) : null;
+  const summaryValue = editingSummary ?? card.summary;
 
   const breadcrumbSegments = [
     { label: "Board", onClick: onBack },
@@ -180,106 +193,112 @@ export function ExpandedCardView({
   ];
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "var(--page-padding)" }}>
-      {/* Breadcrumbs + delete */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+    <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      {/* Content column */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "var(--page-padding)" }}>
+        {/* Breadcrumbs */}
         <Breadcrumbs segments={breadcrumbSegments} />
-        <button
-          onClick={handleDeleteCard}
-          style={{
-            background: "none", border: "none", fontSize: "11px", fontWeight: 500,
-            color: "var(--text-muted)", fontFamily: "var(--font-sans)", padding: 0, cursor: "pointer",
-          }}
-        >
-          Delete
-        </button>
+
+        {/* Card header */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+          <h1 style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-sans)", margin: 0 }}>
+            {card.title}
+          </h1>
+          <TypeBadge type={card.content_type as ContentType} />
+        </div>
+
+        {/* Content area */}
+        {viewScope === "details" ? (
+          <>
+            {/* Editable idea summary */}
+            <div style={{ marginBottom: "24px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: "var(--text-secondary)", marginBottom: "8px", fontFamily: "var(--font-sans)" }}>
+                Idea Summary
+              </div>
+              <textarea
+                value={summaryValue}
+                onChange={(e) => handleSummaryChange(e.target.value)}
+                onBlur={handleSummaryBlur}
+                placeholder="Describe the idea..."
+                style={{
+                  width: "100%",
+                  minHeight: "80px",
+                  padding: "16px 20px",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--rule-faint)",
+                  borderRadius: "0",
+                  fontSize: "14px",
+                  fontWeight: 400,
+                  color: "var(--text-primary)",
+                  lineHeight: 1.7,
+                  fontFamily: "var(--font-sans)",
+                  outline: "none",
+                  resize: "vertical" as const,
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "var(--rule-strong)")}
+              />
+            </div>
+
+            <SubItems
+              artifacts={card.artifacts}
+              onNavigate={(type) => setViewScope(type as ViewScope)}
+              onGenerate={handleGenerateArtifact}
+              generating={generatingArtifact}
+            />
+
+            <Attachments
+              files={contextFiles}
+              onUpload={onUploadFile}
+              onDelete={onDeleteFile}
+            />
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setViewScope("details")}
+              style={{
+                background: "none", border: "none", fontSize: "12px", fontWeight: 500,
+                color: "var(--text-secondary)", fontFamily: "var(--font-sans)", padding: 0,
+                cursor: "pointer", marginBottom: "16px", display: "block",
+              }}
+            >
+              ← Back to idea
+            </button>
+
+            {currentArtifact ? (
+              <div style={{
+                padding: "24px", background: "var(--bg-surface)", border: "1px solid var(--rule-faint)",
+                borderRadius: "0", fontSize: "14px", fontWeight: 400, color: "var(--text-primary)",
+                lineHeight: 1.7, fontFamily: "var(--font-sans)", whiteSpace: "pre-wrap",
+              }}>
+                {currentArtifact.content || "Content is being generated..."}
+              </div>
+            ) : (
+              <div style={{ padding: "40px 20px", textAlign: "center", fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+                No {viewScope === "demo-flow" ? "demo flow" : "script"} yet. Use the thread below to generate one.
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Activity thread */}
+        <ActivityThread
+          messages={messages}
+          projectName={projectName}
+          onSendMessage={handleSendMessage}
+          sending={sending}
+          quickActions={QUICK_ACTIONS[viewScope]}
+        />
       </div>
 
-      {/* Card header */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "-0.01em", color: "var(--text-primary)", fontFamily: "var(--font-sans)", margin: 0 }}>
-          {card.title}
-        </h1>
-        <select
-          value={card.stage}
-          onChange={(e) => handleStageChange(e.target.value as Stage)}
-          style={{
-            padding: "4px 8px", border: "1px solid var(--rule-faint)", borderRadius: "0",
-            fontFamily: "var(--font-sans)", fontSize: "10px", fontWeight: 600,
-            textTransform: "uppercase" as const, letterSpacing: "0.05em",
-            background: "var(--bg-surface)", color: "var(--text-primary)", outline: "none", cursor: "pointer",
-          }}
-        >
-          {STAGES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
-        <TypeBadge type={card.content_type as ContentType} />
-      </div>
-
-      {/* Content area */}
-      {viewScope === "details" ? (
-        <>
-          {/* Idea summary */}
-          <div style={{ marginBottom: "24px" }}>
-            <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: "var(--text-secondary)", marginBottom: "8px", fontFamily: "var(--font-sans)" }}>
-              Idea Summary
-            </div>
-            <div style={{ padding: "16px 20px", background: "#F8FAFC", border: "1px solid var(--rule-faint)", borderRadius: "0", fontSize: "14px", fontWeight: 400, color: "#334155", lineHeight: 1.7, fontFamily: "var(--font-sans)", whiteSpace: "pre-wrap" }}>
-              {card.summary || "No summary yet. Start a conversation below to develop this idea."}
-            </div>
-          </div>
-
-          {/* Sub-items */}
-          <SubItems
-            artifacts={card.artifacts}
-            onNavigate={(type) => setViewScope(type as ViewScope)}
-            onGenerate={handleGenerateArtifact}
-            generating={generatingArtifact}
-          />
-
-          {/* Attachments */}
-          <Attachments
-            files={contextFiles}
-            onUpload={onUploadFile}
-            onDelete={onDeleteFile}
-          />
-        </>
-      ) : (
-        /* Sub-page: Demo Flow or Script */
-        <>
-          <button
-            onClick={() => setViewScope("details")}
-            style={{
-              background: "none", border: "none", fontSize: "12px", fontWeight: 500,
-              color: "var(--text-secondary)", fontFamily: "var(--font-sans)", padding: 0,
-              cursor: "pointer", marginBottom: "16px", display: "block",
-            }}
-          >
-            ← Back to idea
-          </button>
-
-          {currentArtifact ? (
-            <div style={{
-              padding: "24px", background: "var(--bg-surface)", border: "1px solid var(--rule-faint)",
-              borderRadius: "0", fontSize: "14px", fontWeight: 400, color: "var(--text-primary)",
-              lineHeight: 1.7, fontFamily: "var(--font-sans)", whiteSpace: "pre-wrap", maxWidth: "720px",
-            }}>
-              {currentArtifact.content || "Content is being generated..."}
-            </div>
-          ) : (
-            <div style={{ padding: "40px 20px", textAlign: "center", fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
-              No {viewScope === "demo-flow" ? "demo flow" : "script"} yet. Use the thread below to generate one.
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Activity thread */}
-      <ActivityThread
-        messages={messages}
-        projectName={projectName}
-        onSendMessage={handleSendMessage}
-        sending={sending}
-        quickActions={QUICK_ACTIONS[viewScope]}
+      {/* Properties sidebar */}
+      <PropertiesSidebar
+        stage={card.stage}
+        contentType={card.content_type as ContentType}
+        createdAt={card.created_at}
+        summary={summaryValue}
+        onStageChange={handleStageChange}
+        onDelete={handleDeleteCard}
       />
     </div>
   );
