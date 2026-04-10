@@ -4,13 +4,13 @@ import type { ApiResponse, Card } from "@content-studio/shared";
 
 const cards = new Hono();
 
-// List cards for a project (with artifacts summary)
+// List cards for a project
 cards.get("/projects/:projectId/cards", async (c) => {
   const projectId = c.req.param("projectId");
 
   const { data, error } = await supabase
     .from("cards")
-    .select("*, artifacts(id, type, status)")
+    .select("*")
     .eq("project_id", projectId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
@@ -19,7 +19,7 @@ cards.get("/projects/:projectId/cards", async (c) => {
     return c.json({ data: null, error: error.message } satisfies ApiResponse<null>, 500);
   }
 
-  return c.json({ data, error: null });
+  return c.json({ data, error: null } satisfies ApiResponse<Card[]>);
 });
 
 // Create a card manually
@@ -29,7 +29,6 @@ cards.post("/projects/:projectId/cards", async (c) => {
     title: string;
     summary?: string;
     content_type?: "short" | "long";
-    created_by?: "ai" | "user";
   }>();
 
   if (!body.title) {
@@ -59,7 +58,6 @@ cards.post("/projects/:projectId/cards", async (c) => {
       title: body.title,
       summary: body.summary ?? "",
       content_type: body.content_type ?? "short",
-      created_by: body.created_by ?? "user",
       sort_order: nextSort,
     })
     .select()
@@ -72,13 +70,13 @@ cards.post("/projects/:projectId/cards", async (c) => {
   return c.json({ data, error: null } satisfies ApiResponse<Card>, 201);
 });
 
-// Get a single card with artifacts and recent chat
+// Get a single card
 cards.get("/cards/:id", async (c) => {
   const id = c.req.param("id");
 
-  const { data: card, error } = await supabase
+  const { data, error } = await supabase
     .from("cards")
-    .select("*, artifacts(*)")
+    .select("*")
     .eq("id", id)
     .single();
 
@@ -87,15 +85,7 @@ cards.get("/cards/:id", async (c) => {
     return c.json({ data: null, error: error.message } satisfies ApiResponse<null>, status);
   }
 
-  // Get recent chat messages
-  const { data: messages } = await supabase
-    .from("chat_messages")
-    .select("*")
-    .eq("card_id", id)
-    .order("created_at", { ascending: true })
-    .limit(50);
-
-  return c.json({ data: { ...card, messages: messages ?? [] }, error: null });
+  return c.json({ data, error: null } satisfies ApiResponse<Card>);
 });
 
 // Update a card
@@ -126,7 +116,7 @@ cards.put("/cards/:id", async (c) => {
   return c.json({ data, error: null } satisfies ApiResponse<Card>);
 });
 
-// Delete a card and all children (cascade)
+// Delete a card
 cards.delete("/cards/:id", async (c) => {
   const id = c.req.param("id");
 
