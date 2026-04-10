@@ -174,11 +174,12 @@ Content Studio is a **three-zone desktop layout**:
 └──────────┴────────────────────────────────────────────────────┘
 ```
 
-- **Sidebar**: Fixed left, full viewport height, dark background.
-- **Header**: Spans the main area (not sidebar). Contains project identity and actions.
-- **Main content**: Fills remaining space. Switches between board view and expanded card view.
-- **Chat panel**: Fixed right panel, visible only in expanded card view. 360px wide, separated by a 1px `--rule-faint` left border on `--bg-surface`.
-- **Context panel**: Slides over from the right edge on demand, 340px wide. Same surface treatment as chat panel.
+- **Outer app frame**: a 1px solid `--rule-strong` border wraps the entire app shell (sidebar + main) at the viewport edges. The whole app reads as a single bordered container — this is the structural baseline that prevents internal rules from looking like stray lines.
+- **Sidebar**: Fixed left, full shell height, light `--bg-primary` background with a 1px solid `--rule-strong` right edge.
+- **Header**: Spans the main area (not sidebar). Contains view title and primary action. White `--bg-surface` background with a 1px solid `--rule-strong` bottom rule that completes the frame around the top zone.
+- **Main content**: Fills remaining space. Gray `--bg-primary` workspace background for data-dense views (Home board, Project detail tickets area).
+
+**Detail views have exactly one structural rule.** The single 1px `--rule-strong` line between the project info block (crumbs + title + metadata + description, on white) and the tickets workspace (header + board + empty state, on gray) is the only rule inside the detail body. Nothing else in the detail view gets a black rule — no rule under column headers, no border around the detail body, no border around the tickets header. Whitespace carries everything else.
 
 ### 5.2 Spacing rules
 
@@ -246,7 +247,7 @@ Team avatars (bottom):
 ```
 Height: 56px
 Background: --bg-surface (#FFFFFF)
-Border-bottom: 1px solid --rule-faint
+Border-bottom: 1px solid --rule-strong
 Padding: 16px 24px
 Layout: flex, space-between, center-aligned
 

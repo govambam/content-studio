@@ -118,7 +118,7 @@ export function TicketDetailView() {
         ? `Could not load ticket: ${ticketError}`
         : "Ticket not found.";
     return (
-      <div style={{ display: "flex", height: "100vh" }}>
+      <div style={{ display: "flex", height: "100%" }}>
         <Sidebar
           labels={labels}
           activeFilterIds={sidebarFilters}
@@ -176,7 +176,7 @@ export function TicketDetailView() {
   });
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100%" }}>
       <Sidebar
         labels={labels}
         activeFilterIds={sidebarFilters}
@@ -192,8 +192,9 @@ export function TicketDetailView() {
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          background: "var(--bg-primary)",
+          background: "var(--bg-surface)",
           overflow: "auto",
+          minWidth: 0,
         }}
       >
         <div

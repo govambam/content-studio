@@ -88,7 +88,7 @@ export function HomeView() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100%" }}>
       <Sidebar
         labels={labels}
         activeFilterIds={activeFilterIds}
@@ -104,13 +104,14 @@ export function HomeView() {
           flexDirection: "column",
           background: "var(--bg-primary)",
           overflow: "hidden",
+          minWidth: 0,
         }}
       >
         <header
           style={{
             height: "var(--header-height)",
-            background: "transparent",
-            borderBottom: "1px solid var(--rule-faint)",
+            background: "var(--bg-surface)",
+            borderBottom: "1px solid var(--rule-strong)",
             padding: "0 24px",
             display: "flex",
             alignItems: "center",
