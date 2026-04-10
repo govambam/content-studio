@@ -75,8 +75,26 @@ labels.put("/:id", async (c) => {
   const body = await c.req.json<Partial<Pick<Label, "name" | "color">>>();
 
   const sanitized: Record<string, unknown> = {};
-  if ("name" in body) sanitized.name = body.name;
-  if ("color" in body) sanitized.color = body.color;
+  if ("name" in body) {
+    const trimmed = typeof body.name === "string" ? body.name.trim() : "";
+    if (!trimmed) {
+      return c.json(
+        { data: null, error: "name must be a non-empty string" } satisfies ApiResponse<null>,
+        400
+      );
+    }
+    sanitized.name = trimmed;
+  }
+  if ("color" in body) {
+    const trimmed = typeof body.color === "string" ? body.color.trim() : "";
+    if (!trimmed) {
+      return c.json(
+        { data: null, error: "color must be a non-empty string" } satisfies ApiResponse<null>,
+        400
+      );
+    }
+    sanitized.color = trimmed;
+  }
 
   if (Object.keys(sanitized).length === 0) {
     return c.json(
