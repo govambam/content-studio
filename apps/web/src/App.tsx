@@ -1,28 +1,31 @@
 import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
+import { NewIdeaModal } from "./components/NewIdeaModal";
 import { KanbanBoard } from "./components/KanbanBoard";
 import { ExpandedCardView } from "./components/ExpandedCardView";
 import { useProjects } from "./hooks/useProjects";
 import { useCards } from "./hooks/useCards";
 import { useContextFiles } from "./hooks/useContextFiles";
 import { api } from "./lib/api";
+import type { Card, ContentType } from "@content-studio/shared";
 
 function App() {
   const { projects, loading, createProject } = useProjects();
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showNewIdea, setShowNewIdea] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const { cards, refetch: refetchCards } = useCards(activeProjectId);
   const { files: contextFiles, uploadFile, deleteFile } = useContextFiles(activeProjectId);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
-  // Escape key closes modals and views
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (showNewProject) setShowNewProject(false);
+        else if (showNewIdea) setShowNewIdea(false);
         else if (expandedCardId) {
           setExpandedCardId(null);
           refetchCards();
@@ -31,17 +34,27 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showNewProject, expandedCardId, refetchCards]);
+  }, [showNewProject, showNewIdea, expandedCardId, refetchCards]);
 
-  const [generating, setGenerating] = useState(false);
+  const handleCreateIdea = async (data: { title: string; summary: string; content_type: ContentType }) => {
+    if (!activeProject) return;
+    const res = await api.post<Card>(`/projects/${activeProject.id}/cards`, {
+      title: data.title,
+      summary: data.summary,
+      content_type: data.content_type,
+      created_by: "user",
+    });
+    if (res.data) {
+      await refetchCards();
+      setExpandedCardId(res.data.id);
+    }
+  };
 
   const handleGenerateIdeas = async () => {
-    if (!activeProject || generating) return;
-    setGenerating(true);
+    if (!activeProject) return;
     await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
     await new Promise((r) => setTimeout(r, 10000));
     await refetchCards();
-    setGenerating(false);
   };
 
   return (
@@ -67,7 +80,6 @@ function App() {
       >
         {activeProject ? (
           <>
-            {/* Header bar */}
             <header
               style={{
                 height: "var(--header-height)",
@@ -107,22 +119,23 @@ function App() {
                   </div>
                 )}
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  style={{
-                    background: "var(--text-primary)", color: "#FFFFFF", border: "none",
-                    borderRadius: "0", padding: "8px 16px", fontSize: "12px", fontWeight: 600,
-                    fontFamily: "var(--font-sans)", opacity: generating ? 0.5 : 1,
-                  }}
-                  onClick={handleGenerateIdeas}
-                  disabled={generating}
-                >
-                  {generating ? "Generating..." : "Generate Ideas"}
-                </button>
-              </div>
+              <button
+                onClick={() => setShowNewIdea(true)}
+                style={{
+                  background: "var(--text-primary)",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: "0",
+                  padding: "8px 16px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  fontFamily: "var(--font-sans)",
+                }}
+              >
+                + Idea
+              </button>
             </header>
 
-            {/* Board or expanded card */}
             {expandedCardId ? (
               <ExpandedCardView
                 cardId={expandedCardId}
@@ -141,7 +154,6 @@ function App() {
               <KanbanBoard
                 cards={cards}
                 onCardClick={setExpandedCardId}
-                onGenerateMore={handleGenerateIdeas}
               />
             )}
           </>
@@ -166,6 +178,14 @@ function App() {
             const project = await createProject(data);
             if (project) setActiveProjectId(project.id);
           }}
+        />
+      )}
+
+      {showNewIdea && activeProject && (
+        <NewIdeaModal
+          onClose={() => setShowNewIdea(false)}
+          onCreate={handleCreateIdea}
+          onGenerate={handleGenerateIdeas}
         />
       )}
     </div>

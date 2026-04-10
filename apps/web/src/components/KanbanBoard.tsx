@@ -9,7 +9,6 @@ interface CardWithArtifacts extends Card {
 interface KanbanBoardProps {
   cards: CardWithArtifacts[];
   onCardClick: (cardId: string) => void;
-  onGenerateMore?: () => void;
 }
 
 const STAGES: Stage[] = ["unreviewed", "considering", "in_production", "published"];
@@ -21,7 +20,7 @@ const STAGE_LABELS: Record<Stage, string> = {
   published: "PUBLISHED",
 };
 
-export function KanbanBoard({ cards, onCardClick, onGenerateMore }: KanbanBoardProps) {
+export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
   const cardsByStage = STAGES.reduce(
     (acc, stage) => {
       acc[stage] = cards.filter((c) => c.stage === stage);
@@ -51,27 +50,8 @@ export function KanbanBoard({ cards, onCardClick, onGenerateMore }: KanbanBoardP
             fontFamily: "var(--font-sans)",
           }}
         >
-          No ideas yet. Upload context files and generate ideas to get started.
+          No ideas yet. Click "+ Idea" to create or generate ideas.
         </div>
-        {onGenerateMore && (
-          <button
-            onClick={onGenerateMore}
-            style={{
-              background: "var(--text-primary)",
-              color: "#FFFFFF",
-              border: "none",
-              borderRadius: "0",
-              padding: "8px 16px",
-              fontSize: "12px",
-              fontWeight: 600,
-              fontFamily: "var(--font-sans)",
-              cursor: "pointer",
-              marginTop: "8px",
-            }}
-          >
-            Generate Ideas
-          </button>
-        )}
       </div>
     );
   }
@@ -148,25 +128,6 @@ export function KanbanBoard({ cards, onCardClick, onGenerateMore }: KanbanBoardP
               />
             ))}
 
-            {stage === "unreviewed" && onGenerateMore && (
-              <button
-                onClick={onGenerateMore}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  border: "1px dashed #CBD5E1",
-                  borderRadius: "0",
-                  background: "transparent",
-                  color: "var(--text-muted)",
-                  fontSize: "12px",
-                  fontFamily: "var(--font-sans)",
-                  cursor: "pointer",
-                  marginTop: "4px",
-                }}
-              >
-                + Generate more ideas
-              </button>
-            )}
           </div>
         </div>
       ))}
