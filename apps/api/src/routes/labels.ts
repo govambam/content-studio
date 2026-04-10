@@ -1,5 +1,11 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
+import { parseBody, parseParams } from "../lib/validate.js";
+import {
+  createLabelSchema,
+  idParam,
+  updateLabelSchema,
+} from "../lib/schemas.js";
 import type { ApiResponse, Label } from "@content-studio/shared";
 
 const labels = new Hono();
@@ -23,18 +29,12 @@ labels.get("/", async (c) => {
 
 // Create a label
 labels.post("/", async (c) => {
-  const body = await c.req.json<{ name: string; color: string }>();
-
-  if (!body.name || !body.color) {
-    return c.json(
-      { data: null, error: "name and color are required" } satisfies ApiResponse<null>,
-      400
-    );
-  }
+  const parsed = await parseBody(c, createLabelSchema);
+  if (!parsed.ok) return parsed.response;
 
   const { data, error } = await supabase
     .from("labels")
-    .insert({ name: body.name, color: body.color })
+    .insert({ name: parsed.data.name, color: parsed.data.color })
     .select()
     .single();
 
@@ -50,12 +50,13 @@ labels.post("/", async (c) => {
 
 // Report how many projects use a label (for the delete confirm dialog)
 labels.get("/:id/usage", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
 
   const { count, error } = await supabase
     .from("project_labels")
     .select("project_id", { count: "exact", head: true })
-    .eq("label_id", id);
+    .eq("label_id", params.data.id);
 
   if (error) {
     return c.json(
@@ -74,12 +75,13 @@ labels.get("/:id/usage", async (c) => {
 
 // Get a single label
 labels.get("/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
 
   const { data, error } = await supabase
     .from("labels")
     .select("*")
-    .eq("id", id)
+    .eq("id", params.data.id)
     .single();
 
   if (error) {
@@ -95,45 +97,15 @@ labels.get("/:id", async (c) => {
 
 // Update a label
 labels.put("/:id", async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json<Partial<Pick<Label, "name" | "color">>>();
-
-  const sanitized: Record<string, unknown> = {};
-  if ("name" in body) {
-    const trimmed = typeof body.name === "string" ? body.name.trim() : "";
-    if (!trimmed) {
-      return c.json(
-        { data: null, error: "name must be a non-empty string" } satisfies ApiResponse<null>,
-        400
-      );
-    }
-    sanitized.name = trimmed;
-  }
-  if ("color" in body) {
-    const trimmed = typeof body.color === "string" ? body.color.trim() : "";
-    if (!trimmed) {
-      return c.json(
-        { data: null, error: "color must be a non-empty string" } satisfies ApiResponse<null>,
-        400
-      );
-    }
-    sanitized.color = trimmed;
-  }
-
-  if (Object.keys(sanitized).length === 0) {
-    return c.json(
-      {
-        data: null,
-        error: "at least one field (name or color) is required",
-      } satisfies ApiResponse<null>,
-      400
-    );
-  }
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const parsed = await parseBody(c, updateLabelSchema);
+  if (!parsed.ok) return parsed.response;
 
   const { data, error } = await supabase
     .from("labels")
-    .update(sanitized)
-    .eq("id", id)
+    .update(parsed.data)
+    .eq("id", params.data.id)
     .select()
     .single();
 
@@ -150,12 +122,13 @@ labels.put("/:id", async (c) => {
 
 // Delete a label (cascades project_labels rows; projects themselves stay)
 labels.delete("/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
 
   const { error } = await supabase
     .from("labels")
     .delete()
-    .eq("id", id)
+    .eq("id", params.data.id)
     .select()
     .single();
 

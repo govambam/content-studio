@@ -1,12 +1,20 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
+import { parseBody, parseParams } from "../lib/validate.js";
+import {
+  commentBodySchema,
+  idParam,
+  ticketIdParam,
+} from "../lib/schemas.js";
 import type { ApiResponse, Comment } from "@content-studio/shared";
 
 const comments = new Hono();
 
 // List comments on a ticket (oldest first)
 comments.get("/tickets/:ticketId/comments", async (c) => {
-  const ticketId = c.req.param("ticketId");
+  const params = parseParams(c, ticketIdParam);
+  if (!params.ok) return params.response;
+  const ticketId = params.data.ticketId;
 
   const { data, error } = await supabase
     .from("comments")
@@ -26,16 +34,12 @@ comments.get("/tickets/:ticketId/comments", async (c) => {
 
 // Create a comment (also writes an activity event)
 comments.post("/tickets/:ticketId/comments", async (c) => {
-  const ticketId = c.req.param("ticketId");
-  const body = await c.req.json<{ body: string }>();
-
-  const trimmed = typeof body?.body === "string" ? body.body.trim() : "";
-  if (!trimmed) {
-    return c.json(
-      { data: null, error: "body is required" } satisfies ApiResponse<null>,
-      400
-    );
-  }
+  const params = parseParams(c, ticketIdParam);
+  if (!params.ok) return params.response;
+  const ticketId = params.data.ticketId;
+  const parsed = await parseBody(c, commentBodySchema);
+  if (!parsed.ok) return parsed.response;
+  const trimmed = parsed.data.body;
 
   // Verify the ticket exists so we return 404 rather than a cryptic FK error
   const { data: ticketRow, error: ticketError } = await supabase
@@ -90,16 +94,12 @@ comments.post("/tickets/:ticketId/comments", async (c) => {
 
 // Update a comment body (no activity event per spec §6.1)
 comments.put("/comments/:id", async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json<{ body: string }>();
-
-  const trimmed = typeof body?.body === "string" ? body.body.trim() : "";
-  if (!trimmed) {
-    return c.json(
-      { data: null, error: "body is required" } satisfies ApiResponse<null>,
-      400
-    );
-  }
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
+  const parsed = await parseBody(c, commentBodySchema);
+  if (!parsed.ok) return parsed.response;
+  const trimmed = parsed.data.body;
 
   const { data, error } = await supabase
     .from("comments")
@@ -121,7 +121,9 @@ comments.put("/comments/:id", async (c) => {
 
 // Delete a comment (no activity event per spec §6.1)
 comments.delete("/comments/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
 
   const { error } = await supabase
     .from("comments")

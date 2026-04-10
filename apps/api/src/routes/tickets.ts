@@ -1,11 +1,18 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
 import { logger } from "../lib/logger.js";
+import { parseBody, parseParams } from "../lib/validate.js";
+import {
+  createTicketSchema,
+  idParam,
+  projectIdParam,
+  ticketIdParam,
+  updateTicketSchema,
+} from "../lib/schemas.js";
 import type {
   ActivityEventType,
   ActivityFeedItem,
   ApiResponse,
-  ContentStatus,
   Ticket,
 } from "@content-studio/shared";
 
@@ -34,7 +41,9 @@ async function writeActivityEvent(
 
 // List tickets in a project, annotated with asset/comment counts
 tickets.get("/projects/:projectId/tickets", async (c) => {
-  const projectId = c.req.param("projectId");
+  const params = parseParams(c, projectIdParam);
+  if (!params.ok) return params.response;
+  const projectId = params.data.projectId;
 
   const { data: rows, error } = await supabase
     .from("tickets")
@@ -99,18 +108,12 @@ tickets.get("/projects/:projectId/tickets", async (c) => {
 
 // Create a ticket (bottom of Backlog per PHASE-2-PLAN.md §4, Q7)
 tickets.post("/projects/:projectId/tickets", async (c) => {
-  const projectId = c.req.param("projectId");
-  const body = await c.req.json<{
-    title: string;
-    description?: string;
-  }>();
-
-  if (!body.title || typeof body.title !== "string" || !body.title.trim()) {
-    return c.json(
-      { data: null, error: "title is required" } satisfies ApiResponse<null>,
-      400
-    );
-  }
+  const params = parseParams(c, projectIdParam);
+  if (!params.ok) return params.response;
+  const projectId = params.data.projectId;
+  const parsed = await parseBody(c, createTicketSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const { data: projectRow, error: projectError } = await supabase
     .from("projects")
@@ -154,7 +157,7 @@ tickets.post("/projects/:projectId/tickets", async (c) => {
     .from("tickets")
     .insert({
       project_id: projectId,
-      title: body.title.trim(),
+      title: body.title,
       description: body.description ?? "",
       sort_order: nextSort,
       updated_by_client: clientId,
@@ -176,7 +179,9 @@ tickets.post("/projects/:projectId/tickets", async (c) => {
 
 // Get a single ticket
 tickets.get("/tickets/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
 
   const { data, error } = await supabase
     .from("tickets")
@@ -197,13 +202,12 @@ tickets.get("/tickets/:id", async (c) => {
 
 // Update a ticket + emit activity events for any fields that changed
 tickets.put("/tickets/:id", async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json<{
-    title?: string;
-    description?: string;
-    status?: ContentStatus;
-    sort_order?: number;
-  }>();
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
+  const parsed = await parseBody(c, updateTicketSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const clientId = c.req.header("x-client-id") ?? null;
 
@@ -229,28 +233,10 @@ tickets.put("/tickets/:id", async (c) => {
   }
 
   const patch: Record<string, unknown> = { updated_by_client: clientId };
-  if ("title" in body) {
-    if (
-      typeof body.title !== "string" ||
-      body.title.trim().length === 0
-    ) {
-      return c.json(
-        { data: null, error: "title must be a non-empty string" } satisfies ApiResponse<null>,
-        400
-      );
-    }
-    patch.title = body.title.trim();
-  }
-  if ("description" in body) patch.description = body.description;
-  if ("status" in body) patch.status = body.status;
-  if ("sort_order" in body) patch.sort_order = body.sort_order;
-
-  if (Object.keys(patch).length === 1) {
-    return c.json(
-      { data: null, error: "no fields to update" } satisfies ApiResponse<null>,
-      400
-    );
-  }
+  if (body.title !== undefined) patch.title = body.title;
+  if (body.description !== undefined) patch.description = body.description;
+  if (body.status !== undefined) patch.status = body.status;
+  if (body.sort_order !== undefined) patch.sort_order = body.sort_order;
 
   const { data, error } = await supabase
     .from("tickets")
@@ -299,7 +285,9 @@ tickets.put("/tickets/:id", async (c) => {
 
 // Merged activity + comments feed for the ticket (reverse-chronological)
 tickets.get("/tickets/:ticketId/activity", async (c) => {
-  const ticketId = c.req.param("ticketId");
+  const params = parseParams(c, ticketIdParam);
+  if (!params.ok) return params.response;
+  const ticketId = params.data.ticketId;
 
   const [eventsRes, commentsRes] = await Promise.all([
     supabase
@@ -345,7 +333,9 @@ tickets.get("/tickets/:ticketId/activity", async (c) => {
 
 // Delete a ticket (cascades assets, comments, activity)
 tickets.delete("/tickets/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
 
   const { error } = await supabase
     .from("tickets")

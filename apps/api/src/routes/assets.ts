@@ -1,5 +1,11 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
+import { parseBody, parseParams } from "../lib/validate.js";
+import {
+  createAssetSchema,
+  idParam,
+  ticketIdParam,
+} from "../lib/schemas.js";
 import type { ApiResponse, Asset } from "@content-studio/shared";
 
 const assets = new Hono();
@@ -9,7 +15,9 @@ const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 // List assets on a ticket
 assets.get("/tickets/:ticketId/assets", async (c) => {
-  const ticketId = c.req.param("ticketId");
+  const params = parseParams(c, ticketIdParam);
+  if (!params.ok) return params.response;
+  const ticketId = params.data.ticketId;
 
   const { data, error } = await supabase
     .from("assets")
@@ -30,25 +38,13 @@ assets.get("/tickets/:ticketId/assets", async (c) => {
 // Create an asset row and return a signed upload URL so the client can
 // PUT the file bytes directly to Supabase Storage.
 assets.post("/tickets/:ticketId/assets", async (c) => {
-  const ticketId = c.req.param("ticketId");
-  const body = await c.req.json<{
-    filename: string;
-    mime_type: string;
-    size_bytes: number;
-  }>();
+  const params = parseParams(c, ticketIdParam);
+  if (!params.ok) return params.response;
+  const ticketId = params.data.ticketId;
+  const parsed = await parseBody(c, createAssetSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
-  if (!body || typeof body.filename !== "string" || !body.filename.trim()) {
-    return c.json(
-      { data: null, error: "filename is required" } satisfies ApiResponse<null>,
-      400
-    );
-  }
-  if (typeof body.size_bytes !== "number" || body.size_bytes < 0) {
-    return c.json(
-      { data: null, error: "size_bytes must be a non-negative number" } satisfies ApiResponse<null>,
-      400
-    );
-  }
   if (body.size_bytes > MAX_SIZE_BYTES) {
     return c.json(
       {
@@ -86,8 +82,8 @@ assets.post("/tickets/:ticketId/assets", async (c) => {
     .from("assets")
     .insert({
       ticket_id: ticketId,
-      filename: body.filename.trim(),
-      mime_type: typeof body.mime_type === "string" ? body.mime_type : "",
+      filename: body.filename,
+      mime_type: body.mime_type,
       size_bytes: body.size_bytes,
       storage_path: "",
     })
@@ -175,7 +171,9 @@ assets.post("/tickets/:ticketId/assets", async (c) => {
 
 // Signed download URL for an asset (short TTL)
 assets.get("/assets/:id/download", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
 
   const { data: row, error: rowError } = await supabase
     .from("assets")
@@ -219,7 +217,9 @@ assets.get("/assets/:id/download", async (c) => {
 
 // Delete an asset (row + storage object + activity event)
 assets.delete("/assets/:id", async (c) => {
-  const id = c.req.param("id");
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
   const clientId = c.req.header("x-client-id") ?? null;
 
   const { data: row, error: rowError } = await supabase
