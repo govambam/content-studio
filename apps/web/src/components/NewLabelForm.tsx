@@ -52,7 +52,12 @@ export function NewLabelForm({ onSubmit, onCancel }: NewLabelFormProps) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Escape") onCancel();
+          if (e.key === "Escape") {
+            // Stop the event so host modals with a window-level Escape
+            // listener (e.g. NewProjectModal) don't also close.
+            e.stopPropagation();
+            onCancel();
+          }
         }}
         placeholder="Label name"
         disabled={submitting}
