@@ -5,11 +5,15 @@
 // delivers an event whose source matches this id, the hook ignores it — the
 // local state already reflects the change.
 
-function makeId(): string {
+// Older Safari (<15.4), jsdom, and SSR contexts don't expose
+// `crypto.randomUUID`. Guard so we never throw at module init or per-call.
+export function randomId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
-  return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
 }
 
-export const CLIENT_ID: string = makeId();
+export const CLIENT_ID: string = randomId("c");

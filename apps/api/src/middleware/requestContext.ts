@@ -8,11 +8,13 @@ declare module "hono" {
   }
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Accept UUIDs or the safe fallback format clients use when
+// `crypto.randomUUID` is unavailable (older Safari, jsdom, SSR). Bound the
+// length so a caller cannot stuff arbitrarily large ids into log lines.
+const REQUEST_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
 function readOrMintRequestId(headerValue: string | undefined): string {
-  if (headerValue && UUID_RE.test(headerValue)) return headerValue;
+  if (headerValue && REQUEST_ID_RE.test(headerValue)) return headerValue;
   return crypto.randomUUID();
 }
 
