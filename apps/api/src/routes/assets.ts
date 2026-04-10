@@ -6,6 +6,7 @@ import {
   idParam,
   ticketIdParam,
 } from "../lib/schemas.js";
+import { resolveMimeType } from "../lib/mimeTypes.js";
 import type { ApiResponse, Asset } from "@content-studio/shared";
 
 const assets = new Hono();
@@ -55,6 +56,17 @@ assets.post("/tickets/:ticketId/assets", async (c) => {
     );
   }
 
+  // Resolve MIME server-side. We do NOT trust body.mime_type past the
+  // allowlist check; resolveMimeType either returns a canonical type
+  // or rejects the upload outright.
+  const resolvedMime = resolveMimeType(body.filename, body.mime_type);
+  if (!resolvedMime.ok) {
+    return c.json(
+      { data: null, error: resolvedMime.reason ?? "mime type not allowed" } satisfies ApiResponse<null>,
+      400
+    );
+  }
+
   // Verify the parent ticket
   const { data: ticketRow, error: ticketError } = await supabase
     .from("tickets")
@@ -77,13 +89,14 @@ assets.post("/tickets/:ticketId/assets", async (c) => {
   const clientId = c.req.header("x-client-id") ?? null;
 
   // Insert the asset row first. We need its id for the storage path so
-  // the file and the row are linked 1:1.
+  // the file and the row are linked 1:1. Store the server-resolved MIME
+  // so the row reflects what we validated, not what the caller claimed.
   const { data: assetRow, error: insertError } = await supabase
     .from("assets")
     .insert({
       ticket_id: ticketId,
       filename: body.filename,
-      mime_type: body.mime_type,
+      mime_type: resolvedMime.mimeType,
       size_bytes: body.size_bytes,
       storage_path: "",
     })
@@ -134,30 +147,16 @@ assets.post("/tickets/:ticketId/assets", async (c) => {
     );
   }
 
-  // Best-effort activity event. We write it here even though the client
-  // hasn't physically uploaded the bytes yet — the row exists, and if
-  // the PUT fails, the client is expected to DELETE the asset which
-  // will emit asset_deleted.
-  const { error: actError } = await supabase.from("activity_events").insert({
-    ticket_id: ticketId,
-    event_type: "asset_uploaded",
-    meta: {
-      asset_id: assetRow.id,
-      filename: assetRow.filename,
-      source: clientId,
-    },
-  });
-  if (actError) {
-    c.get("logger").error(
-      { err: actError.message, assetId: assetRow.id, ticketId },
-      "activity_event_write_failed"
-    );
-  }
+  // NOTE: no activity event here. The client has not PUT the bytes
+  // yet — writing `asset_uploaded` at this point means the feed shows
+  // an upload that may never have completed. The client calls
+  // POST /assets/:id/confirm after a successful PUT, which is where
+  // the event is written. See asset_uploaded ordering fix.
 
   return c.json(
     {
       data: {
-        asset: { ...assetRow, storage_path: storagePath },
+        asset: { ...assetRow, storage_path: storagePath, mime_type: resolvedMime.mimeType },
         upload: signed,
       },
       error: null,
@@ -167,6 +166,52 @@ assets.post("/tickets/:ticketId/assets", async (c) => {
     }>,
     201
   );
+});
+
+// Confirm that the client successfully PUT the bytes to the signed
+// URL. This is where the `asset_uploaded` activity event gets written,
+// so the feed only shows uploads that actually completed.
+assets.post("/assets/:id/confirm", async (c) => {
+  const params = parseParams(c, idParam);
+  if (!params.ok) return params.response;
+  const id = params.data.id;
+  const clientId = c.req.header("x-client-id") ?? null;
+
+  const { data: row, error: rowError } = await supabase
+    .from("assets")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (rowError) {
+    return c.json(
+      { data: null, error: rowError.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+  if (!row) {
+    return c.json(
+      { data: null, error: "asset not found" } satisfies ApiResponse<null>,
+      404
+    );
+  }
+
+  const { error: actError } = await supabase.from("activity_events").insert({
+    ticket_id: row.ticket_id,
+    event_type: "asset_uploaded",
+    meta: {
+      asset_id: row.id,
+      filename: row.filename,
+      source: clientId,
+    },
+  });
+  if (actError) {
+    c.get("logger").error(
+      { err: actError.message, assetId: row.id, ticketId: row.ticket_id },
+      "activity_event_write_failed"
+    );
+  }
+
+  return c.json({ data: null, error: null } satisfies ApiResponse<null>);
 });
 
 // Signed download URL for an asset (short TTL)

@@ -80,7 +80,7 @@ export function useAssets(ticketId: string | null) {
       const putRes = await fetch(upload.signedUrl, {
         method: "PUT",
         headers: {
-          "Content-Type": file.type || "application/octet-stream",
+          "Content-Type": asset.mime_type || "application/octet-stream",
           "x-upsert": "false",
         },
         body: file,
@@ -96,6 +96,12 @@ export function useAssets(ticketId: string | null) {
         error: err instanceof Error ? err.message : String(err),
       };
     }
+
+    // Step 3: tell the API the bytes landed so it can write the
+    // `asset_uploaded` activity event. Best-effort — the upload
+    // itself is done, so even if the confirm call fails we still
+    // return success and just miss the audit-log entry.
+    await api.post<null>(`/assets/${asset.id}/confirm`, {});
 
     await fetchAssets();
     return { error: null };

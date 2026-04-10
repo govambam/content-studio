@@ -232,44 +232,20 @@ projects.put("/:id", async (c) => {
     );
   }
 
-  // Replace label set if labelIds was provided. Snapshot the prior set so
-  // we can restore it if the new insert fails — otherwise a bad label id
-  // would leave the project unlabeled.
+  // Replace label set if labelIds was provided. The replace_project_labels
+  // RPC wraps the delete+insert in one transaction so a failed insert
+  // no longer leaves the project unlabeled — no snapshot/restore dance
+  // required.
   if (body.labelIds) {
-    const priorLabelIds = existing.labels.map((l) => l.id);
-
-    const { error: delError } = await supabase
-      .from("project_labels")
-      .delete()
-      .eq("project_id", id);
-    if (delError) {
+    const { error: rpcError } = await supabase.rpc(
+      "replace_project_labels",
+      { p_project_id: id, p_label_ids: body.labelIds }
+    );
+    if (rpcError) {
       return c.json(
-        { data: null, error: delError.message } satisfies ApiResponse<null>,
+        { data: null, error: rpcError.message } satisfies ApiResponse<null>,
         500
       );
-    }
-    if (body.labelIds.length > 0) {
-      const rels = body.labelIds.map((label_id) => ({
-        project_id: id,
-        label_id,
-      }));
-      const { error: relError } = await supabase
-        .from("project_labels")
-        .insert(rels);
-      if (relError) {
-        // Restore the prior label set best-effort.
-        if (priorLabelIds.length > 0) {
-          const restoreRels = priorLabelIds.map((label_id) => ({
-            project_id: id,
-            label_id,
-          }));
-          await supabase.from("project_labels").insert(restoreRels);
-        }
-        return c.json(
-          { data: null, error: relError.message } satisfies ApiResponse<null>,
-          500
-        );
-      }
     }
   }
 
