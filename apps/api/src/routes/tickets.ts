@@ -1,8 +1,33 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
-import type { ApiResponse, ContentStatus, Ticket } from "@content-studio/shared";
+import type {
+  ActivityEventType,
+  ApiResponse,
+  ContentStatus,
+  Ticket,
+} from "@content-studio/shared";
 
 const tickets = new Hono();
+
+// Write an activity event; best-effort (log on failure, don't block).
+async function writeActivityEvent(
+  ticketId: string,
+  eventType: ActivityEventType,
+  meta: Record<string, unknown>,
+  clientId: string | null
+): Promise<void> {
+  const { error } = await supabase.from("activity_events").insert({
+    ticket_id: ticketId,
+    event_type: eventType,
+    meta: { ...meta, source: clientId },
+  });
+  if (error) {
+    console.error(
+      `failed to write activity event ${eventType} for ticket ${ticketId}:`,
+      error.message
+    );
+  }
+}
 
 // List tickets in a project
 tickets.get("/projects/:projectId/tickets", async (c) => {
@@ -40,7 +65,6 @@ tickets.post("/projects/:projectId/tickets", async (c) => {
     );
   }
 
-  // Confirm the project exists so we return 404 instead of a cryptic FK error
   const { data: projectRow, error: projectError } = await supabase
     .from("projects")
     .select("id")
@@ -60,7 +84,6 @@ tickets.post("/projects/:projectId/tickets", async (c) => {
     );
   }
 
-  // Next sort_order at the bottom of the backlog column
   const { data: maxRow, error: maxError } = await supabase
     .from("tickets")
     .select("sort_order")
@@ -99,6 +122,8 @@ tickets.post("/projects/:projectId/tickets", async (c) => {
     );
   }
 
+  await writeActivityEvent(data.id, "ticket_created", {}, clientId);
+
   return c.json({ data, error: null } satisfies ApiResponse<Ticket>, 201);
 });
 
@@ -123,7 +148,7 @@ tickets.get("/tickets/:id", async (c) => {
   return c.json({ data, error: null } satisfies ApiResponse<Ticket>);
 });
 
-// Update a ticket
+// Update a ticket + emit activity events for any fields that changed
 tickets.put("/tickets/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{
@@ -134,6 +159,27 @@ tickets.put("/tickets/:id", async (c) => {
   }>();
 
   const clientId = c.req.header("x-client-id") ?? null;
+
+  // Fetch the prior row so we can compute diffs for activity events and
+  // return a proper 404 when the ticket does not exist.
+  const { data: prior, error: priorError } = await supabase
+    .from("tickets")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (priorError) {
+    return c.json(
+      { data: null, error: priorError.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+  if (!prior) {
+    return c.json(
+      { data: null, error: "not found" } satisfies ApiResponse<null>,
+      404
+    );
+  }
 
   const patch: Record<string, unknown> = { updated_by_client: clientId };
   if ("title" in body) {
@@ -153,7 +199,6 @@ tickets.put("/tickets/:id", async (c) => {
   if ("sort_order" in body) patch.sort_order = body.sort_order;
 
   if (Object.keys(patch).length === 1) {
-    // only updated_by_client — nothing to update
     return c.json(
       { data: null, error: "no fields to update" } satisfies ApiResponse<null>,
       400
@@ -172,6 +217,30 @@ tickets.put("/tickets/:id", async (c) => {
     return c.json(
       { data: null, error: error.message } satisfies ApiResponse<null>,
       status
+    );
+  }
+
+  // Emit activity events for anything that actually changed. sort_order
+  // changes are intentionally NOT recorded — drag-and-drop would flood
+  // the feed with every reorder. The spec records status changes for
+  // both the drag and the dropdown cases, but not pure reorders.
+  if ("title" in patch && patch.title !== prior.title) {
+    await writeActivityEvent(
+      id,
+      "title_changed",
+      { from: prior.title, to: patch.title },
+      clientId
+    );
+  }
+  if ("description" in patch && patch.description !== prior.description) {
+    await writeActivityEvent(id, "description_changed", {}, clientId);
+  }
+  if ("status" in patch && patch.status !== prior.status) {
+    await writeActivityEvent(
+      id,
+      "status_changed",
+      { from: prior.status, to: patch.status },
+      clientId
     );
   }
 
