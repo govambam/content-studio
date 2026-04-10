@@ -2,14 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ContentStatus } from "@content-studio/shared";
 import { CONTENT_STATUSES, STATUS_LABELS } from "@content-studio/shared";
-import { Sidebar } from "../components/Sidebar";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { Markdown } from "../components/Markdown";
 import { MarkdownEditor } from "../components/MarkdownEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { ActivityFeed } from "../components/ActivityFeed";
 import { AssetsSection } from "../components/AssetsSection";
-import { useLabels } from "../hooks/useLabels";
+import { Wordmark } from "../components/Wordmark";
 import { useProjects } from "../hooks/useProjects";
 import { useTicket } from "../hooks/useTicket";
 import { useActivity } from "../hooks/useActivity";
@@ -21,7 +20,6 @@ export function TicketDetailView() {
     ticketId: string;
   }>();
   const navigate = useNavigate();
-  const { labels, createLabel } = useLabels();
   const { projects } = useProjects();
   const {
     ticket,
@@ -45,7 +43,6 @@ export function TicketDetailView() {
 
   const project = projects.find((p) => p.id === projectId) ?? null;
 
-  const [sidebarFilters, setSidebarFilters] = useState<Set<string>>(new Set());
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -113,21 +110,16 @@ export function TicketDetailView() {
         ? `Could not load ticket: ${ticketError}`
         : "Ticket not found.";
     return (
-      <div style={{ display: "flex", height: "100vh" }}>
-        <Sidebar
-          labels={labels}
-          activeFilterIds={sidebarFilters}
-          onToggleFilter={(id) => {
-            setSidebarFilters(new Set([id]));
-            navigate("/");
-          }}
-          onClearFilters={() => setSidebarFilters(new Set())}
-          onCreateLabel={async (name, color) => {
-            const res = await createLabel(name, color);
-            return { error: res.error };
-          }}
-        />
-        <main
+      <main
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          background: "var(--bg-primary)",
+        }}
+      >
+        <TopStrip />
+        <div
           style={{
             flex: 1,
             display: "flex",
@@ -135,7 +127,6 @@ export function TicketDetailView() {
             alignItems: "center",
             justifyContent: "center",
             gap: "12px",
-            background: "var(--bg-primary)",
             fontFamily: "var(--font-sans)",
             color: ticketLoading ? "var(--text-muted)" : "var(--text-secondary)",
             fontSize: "14px",
@@ -162,8 +153,8 @@ export function TicketDetailView() {
               Back to project
             </button>
           )}
-        </main>
-      </div>
+        </div>
+      </main>
     );
   }
 
@@ -174,27 +165,32 @@ export function TicketDetailView() {
   });
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      <Sidebar
-        labels={labels}
-        activeFilterIds={sidebarFilters}
-        onToggleFilter={(id) => {
-          setSidebarFilters(new Set([id]));
-          navigate("/");
-        }}
-        onClearFilters={() => setSidebarFilters(new Set())}
-        onCreateLabel={async (name, color) => {
-          const res = await createLabel(name, color);
-          return { error: res.error };
-        }}
+    <main
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        background: "var(--bg-primary)",
+        overflow: "hidden",
+      }}
+    >
+      <TopStrip
+        breadcrumb={
+          <Breadcrumbs
+            items={[
+              { label: "Home", to: "/" },
+              {
+                label: project?.title ?? "Project",
+                to: `/projects/${projectId}`,
+              },
+              { label: ticket.title },
+            ]}
+          />
+        }
       />
-
-      <main
+      <div
         style={{
           flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          background: "var(--bg-primary)",
           overflow: "auto",
         }}
       >
@@ -206,15 +202,7 @@ export function TicketDetailView() {
             padding: "24px",
           }}
         >
-          <Breadcrumbs
-            items={[
-              { label: "Home", to: "/" },
-              { label: project?.title ?? "Project", to: `/projects/${projectId}` },
-              { label: ticket.title },
-            ]}
-          />
-
-          <div style={{ marginTop: "16px" }}>
+          <div>
             {editingTitle ? (
               <input
                 ref={titleInputRef}
@@ -422,7 +410,29 @@ export function TicketDetailView() {
             onDeleteComment={deleteComment}
           />
         </div>
-      </main>
+      </div>
+    </main>
+  );
+}
+
+interface TopStripProps {
+  breadcrumb?: React.ReactNode;
+}
+
+function TopStrip({ breadcrumb }: TopStripProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "24px",
+        padding: "16px 24px",
+        borderBottom: "1px solid var(--rule-faint)",
+        flexShrink: 0,
+      }}
+    >
+      <Wordmark />
+      {breadcrumb}
     </div>
   );
 }
