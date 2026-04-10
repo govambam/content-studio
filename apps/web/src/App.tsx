@@ -2,14 +2,17 @@ import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
 import { KanbanBoard } from "./components/KanbanBoard";
+import { ExpandedCardView } from "./components/ExpandedCardView";
 import { useProjects } from "./hooks/useProjects";
 import { useCards } from "./hooks/useCards";
+import { api } from "./lib/api";
 
 function App() {
   const { projects, loading, createProject } = useProjects();
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
-  const { cards } = useCards(activeProjectId);
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const { cards, refetch: refetchCards } = useCards(activeProjectId);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
 
@@ -18,7 +21,10 @@ function App() {
       <Sidebar
         projects={projects}
         activeProjectId={activeProjectId}
-        onSelectProject={setActiveProjectId}
+        onSelectProject={(id) => {
+          setActiveProjectId(id);
+          setExpandedCardId(null);
+        }}
         onNewProject={() => setShowNewProject(true)}
       />
 
@@ -107,20 +113,33 @@ function App() {
                     fontWeight: 600,
                     fontFamily: "var(--font-sans)",
                   }}
+                  onClick={async () => {
+                    await api.post(`/projects/${activeProject.id}/generate-ideas`, {});
+                    // Poll for new cards after a delay
+                    setTimeout(() => refetchCards(), 5000);
+                  }}
                 >
                   Generate Ideas
                 </button>
               </div>
             </header>
 
-            {/* Kanban board */}
-            <KanbanBoard
-              cards={cards}
-              onCardClick={(cardId) => {
-                // Expanded card view — coming in PR #8
-                console.log("Card clicked:", cardId);
-              }}
-            />
+            {/* Board or expanded card */}
+            {expandedCardId ? (
+              <ExpandedCardView
+                cardId={expandedCardId}
+                projectName={activeProject.name}
+                onBack={() => {
+                  setExpandedCardId(null);
+                  refetchCards();
+                }}
+              />
+            ) : (
+              <KanbanBoard
+                cards={cards}
+                onCardClick={setExpandedCardId}
+              />
+            )}
           </>
         ) : (
           /* Empty state */

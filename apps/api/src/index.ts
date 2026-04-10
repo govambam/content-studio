@@ -5,6 +5,7 @@ import projects from "./routes/projects.js";
 import context from "./routes/context.js";
 import cards from "./routes/cards.js";
 import ai from "./routes/ai.js";
+import chat from "./routes/chat.js";
 
 const app = new Hono();
 
@@ -24,6 +25,7 @@ app.route("/api/projects", projects);
 app.route("/api", context);
 app.route("/api", cards);
 app.route("/api", ai);
+app.route("/api", chat);
 
 const port = parseInt(process.env.PORT || "3001", 10);
 
