@@ -245,7 +245,7 @@ export function NewProjectModal({
                 background: "transparent",
                 border: "1px dashed var(--rule-faint)",
                 borderRadius: "0",
-                padding: "6px 10px",
+                padding: "6px 8px",
                 fontSize: "11px",
                 fontWeight: 700,
                 color: "var(--text-secondary)",

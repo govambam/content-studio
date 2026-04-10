@@ -112,13 +112,13 @@ export function Sidebar({
             style={{
               border: "none",
               background: "transparent",
-              color: "var(--accent-blue)",
+              color: "var(--text-primary)",
               fontSize: "10px",
               fontWeight: 700,
               cursor: "pointer",
               padding: 0,
               fontFamily: "var(--font-sans)",
-              letterSpacing: "0.06em",
+              letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
           >

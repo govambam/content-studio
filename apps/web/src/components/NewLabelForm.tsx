@@ -102,7 +102,7 @@ export function NewLabelForm({ onSubmit, onCancel }: NewLabelFormProps) {
           disabled={!name.trim() || submitting}
           style={{
             flex: 1,
-            padding: "6px 10px",
+            padding: "6px 8px",
             background: "var(--text-primary)",
             color: "#FFFFFF",
             border: "none",
@@ -121,7 +121,7 @@ export function NewLabelForm({ onSubmit, onCancel }: NewLabelFormProps) {
           onClick={onCancel}
           style={{
             flex: 1,
-            padding: "6px 10px",
+            padding: "6px 8px",
             background: "var(--bg-surface)",
             color: "var(--text-secondary)",
             border: "1px solid var(--rule-faint)",
