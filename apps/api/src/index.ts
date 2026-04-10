@@ -5,6 +5,7 @@ import labels from "./routes/labels.js";
 import projects from "./routes/projects.js";
 import tickets from "./routes/tickets.js";
 import comments from "./routes/comments.js";
+import assets from "./routes/assets.js";
 
 const app = new Hono();
 
@@ -24,6 +25,7 @@ app.route("/api/labels", labels);
 app.route("/api/projects", projects);
 app.route("/api", tickets);
 app.route("/api", comments);
+app.route("/api", assets);
 
 const port = parseInt(process.env.PORT || "3001", 10);
 

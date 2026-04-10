@@ -8,10 +8,12 @@ import { Markdown } from "../components/Markdown";
 import { MarkdownEditor } from "../components/MarkdownEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { ActivityFeed } from "../components/ActivityFeed";
+import { AssetsSection } from "../components/AssetsSection";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
 import { useTicket } from "../hooks/useTicket";
 import { useActivity } from "../hooks/useActivity";
+import { useAssets } from "../hooks/useAssets";
 
 export function TicketDetailView() {
   const { projectId, ticketId } = useParams<{
@@ -34,6 +36,12 @@ export function TicketDetailView() {
     editComment,
     deleteComment,
   } = useActivity(ticketId ?? null);
+  const {
+    assets,
+    uploadAsset,
+    deleteAsset,
+    getDownloadUrl,
+  } = useAssets(ticketId ?? null);
 
   const project = projects.find((p) => p.id === projectId) ?? null;
 
@@ -397,16 +405,12 @@ export function TicketDetailView() {
           </div>
 
           <SectionHeader>Assets</SectionHeader>
-          <div
-            style={{
-              padding: "12px",
-              fontSize: "12px",
-              color: "var(--text-muted)",
-              fontFamily: "var(--font-sans)",
-            }}
-          >
-            Assets arrive in PR #31.
-          </div>
+          <AssetsSection
+            assets={assets}
+            onUpload={uploadAsset}
+            onDelete={deleteAsset}
+            getDownloadUrl={getDownloadUrl}
+          />
 
           <SectionHeader>Activity</SectionHeader>
           <ActivityFeed
