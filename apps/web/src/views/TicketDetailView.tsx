@@ -7,9 +7,11 @@ import { Breadcrumbs } from "../components/Breadcrumbs";
 import { Markdown } from "../components/Markdown";
 import { MarkdownEditor } from "../components/MarkdownEditor";
 import { StatusBadge } from "../components/StatusBadge";
+import { ActivityFeed } from "../components/ActivityFeed";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
 import { useTicket } from "../hooks/useTicket";
+import { useActivity } from "../hooks/useActivity";
 
 export function TicketDetailView() {
   const { projectId, ticketId } = useParams<{
@@ -26,6 +28,12 @@ export function TicketDetailView() {
     updateTicket,
     deleteTicket,
   } = useTicket(ticketId ?? null);
+  const {
+    items: activityItems,
+    addComment,
+    editComment,
+    deleteComment,
+  } = useActivity(ticketId ?? null);
 
   const project = projects.find((p) => p.id === projectId) ?? null;
 
@@ -401,16 +409,12 @@ export function TicketDetailView() {
           </div>
 
           <SectionHeader>Activity</SectionHeader>
-          <div
-            style={{
-              padding: "12px",
-              fontSize: "12px",
-              color: "var(--text-muted)",
-              fontFamily: "var(--font-sans)",
-            }}
-          >
-            Activity feed and comments arrive in PR #30.
-          </div>
+          <ActivityFeed
+            items={activityItems}
+            onAddComment={addComment}
+            onEditComment={editComment}
+            onDeleteComment={deleteComment}
+          />
         </div>
       </main>
     </div>

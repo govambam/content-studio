@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
 import type {
   ActivityEventType,
+  ActivityFeedItem,
   ApiResponse,
   ContentStatus,
   Ticket,
@@ -245,6 +246,52 @@ tickets.put("/tickets/:id", async (c) => {
   }
 
   return c.json({ data, error: null } satisfies ApiResponse<Ticket>);
+});
+
+// Merged activity + comments feed for the ticket (reverse-chronological)
+tickets.get("/tickets/:ticketId/activity", async (c) => {
+  const ticketId = c.req.param("ticketId");
+
+  const [eventsRes, commentsRes] = await Promise.all([
+    supabase
+      .from("activity_events")
+      .select("*")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("comments")
+      .select("*")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (eventsRes.error) {
+    return c.json(
+      { data: null, error: eventsRes.error.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+  if (commentsRes.error) {
+    return c.json(
+      { data: null, error: commentsRes.error.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+
+  const merged: ActivityFeedItem[] = [
+    ...(eventsRes.data ?? []).map((row) => ({
+      kind: "event" as const,
+      ...row,
+    })),
+    ...(commentsRes.data ?? []).map((row) => ({
+      kind: "comment" as const,
+      ...row,
+    })),
+  ].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
+  return c.json(
+    { data: merged, error: null } satisfies ApiResponse<ActivityFeedItem[]>
+  );
 });
 
 // Delete a ticket (cascades assets, comments, activity)
