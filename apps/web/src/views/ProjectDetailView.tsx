@@ -13,6 +13,7 @@ import { TicketCard } from "../components/TicketCard";
 import { NewTicketModal } from "../components/NewTicketModal";
 import { LabelChip } from "../components/LabelChip";
 import { StatusBadge } from "../components/StatusBadge";
+import { SkeletonKanbanBoard } from "../components/Skeleton";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
 import { useTickets } from "../hooks/useTickets";
@@ -22,7 +23,12 @@ export function ProjectDetailView() {
   const navigate = useNavigate();
   const { labels, createLabel } = useLabels();
   const { projects, updateProject, deleteProject } = useProjects();
-  const { tickets, createTicket, updateTicket } = useTickets(projectId ?? null);
+  const {
+    tickets,
+    loading: ticketsLoading,
+    createTicket,
+    updateTicket,
+  } = useTickets(projectId ?? null);
 
   const project = useMemo(
     () => projects.find((p) => p.id === projectId) ?? null,
@@ -515,18 +521,25 @@ export function ProjectDetailView() {
           </button>
         </div>
 
-        <KanbanBoard<Ticket>
-          items={tickets}
-          renderItem={(ticket) => (
-            <TicketCard
-              ticket={ticket}
-              onClick={() =>
-                navigate(`/projects/${project.id}/tickets/${ticket.id}`)
-              }
-            />
-          )}
-          onItemMoved={handleItemMoved}
-        />
+        {ticketsLoading ? (
+          <SkeletonKanbanBoard />
+        ) : (
+          <KanbanBoard<Ticket>
+            items={tickets}
+            renderItem={(ticket) => (
+              <TicketCard
+                ticket={ticket}
+                assetCount={ticket.asset_count ?? 0}
+                commentCount={ticket.comment_count ?? 0}
+                onClick={() =>
+                  navigate(`/projects/${project.id}/tickets/${ticket.id}`)
+                }
+              />
+            )}
+            onItemMoved={handleItemMoved}
+            emptyMessage="This project has no tickets yet. Break down the work by clicking + New Ticket."
+          />
+        )}
       </main>
 
       {showNewTicket && (

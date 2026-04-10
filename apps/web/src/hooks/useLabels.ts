@@ -43,9 +43,15 @@ export function useLabels() {
   const createLabel = async (name: string, color: string) => {
     const res = await api.post<Label>("/labels", { name, color });
     if (res.data) {
-      setLabels((prev) => [...prev, res.data!].sort((a, b) => a.name.localeCompare(b.name)));
+      setLabels((prev) =>
+        [...prev, res.data!].sort((a, b) => a.name.localeCompare(b.name))
+      );
     }
     return res;
+  };
+
+  const getLabelUsage = async (id: string) => {
+    return api.get<{ project_count: number }>(`/labels/${id}/usage`);
   };
 
   const deleteLabel = async (id: string) => {
@@ -56,5 +62,13 @@ export function useLabels() {
     return res;
   };
 
-  return { labels, loading, error, createLabel, deleteLabel, refetch: fetchLabels };
+  return {
+    labels,
+    loading,
+    error,
+    createLabel,
+    deleteLabel,
+    getLabelUsage,
+    refetch: fetchLabels,
+  };
 }

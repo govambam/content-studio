@@ -55,6 +55,10 @@ export interface Ticket {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  // Optional aggregates populated by list endpoints only. The single
+  // ticket GET endpoint does not return these.
+  asset_count?: number;
+  comment_count?: number;
 }
 
 export interface Asset {
