@@ -13,9 +13,7 @@ export function useContextFiles(projectId: string | null) {
     }
     setLoading(true);
     const res = await api.get<ContextFile[]>(`/projects/${projectId}/context`);
-    if (res.data) {
-      setFiles(res.data);
-    }
+    setFiles(res.data ?? []);
     setLoading(false);
   }, [projectId]);
 
