@@ -99,7 +99,12 @@ export const createAssetSchema = z.object({
 // Reorder
 export const reorderTicketsSchema = z.object({
   status: contentStatusSchema,
-  ticketIds: z.array(uuidSchema).max(500),
+  ticketIds: z
+    .array(uuidSchema)
+    .max(500)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "ticketIds must not contain duplicates",
+    }),
 });
 
 // Params
