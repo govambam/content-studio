@@ -1,5 +1,5 @@
 import type { ApiResponse } from "@content-studio/shared";
-import { CLIENT_ID } from "./clientId";
+import { CLIENT_ID, newPrefixedId } from "./clientId";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -7,12 +7,18 @@ async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
+  // Per-request correlation id. Threaded as `x-request-id` so the Hono
+  // middleware echoes it back, which lets Sentry/BigQuery later stitch
+  // a client breadcrumb to the server log line. Uses the same guarded
+  // generator as CLIENT_ID so older Safari / jsdom don't crash.
+  const requestId = newPrefixedId("r");
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
         "x-client-id": CLIENT_ID,
+        "x-request-id": requestId,
         ...options?.headers,
       },
     });

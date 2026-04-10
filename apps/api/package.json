@@ -9,14 +9,15 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "hono": "^4.7.0",
+    "@content-studio/shared": "*",
     "@hono/node-server": "^1.14.0",
     "@supabase/supabase-js": "^2.49.0",
-    "@content-studio/shared": "*"
+    "hono": "^4.7.0",
+    "pino": "^10.3.1"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "typescript": "^5.7.0"
   }
 }
