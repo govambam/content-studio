@@ -155,7 +155,7 @@ export function ProjectDetailView() {
 
   if (!project) {
     return (
-      <div style={{ display: "flex", height: "100vh" }}>
+      <div style={{ display: "flex", height: "100%" }}>
         <Sidebar
           labels={labels}
           activeFilterIds={sidebarFilters}
@@ -187,7 +187,7 @@ export function ProjectDetailView() {
   const attachedLabelIds = new Set(project.labels.map((l) => l.id));
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100%" }}>
       <Sidebar
         labels={labels}
         activeFilterIds={sidebarFilters}
@@ -206,12 +206,13 @@ export function ProjectDetailView() {
           flexDirection: "column",
           background: "var(--bg-primary)",
           overflow: "hidden",
+          minWidth: 0,
         }}
       >
         <div
           style={{
             padding: "20px 24px 16px",
-            borderBottom: "1px solid var(--rule-faint)",
+            background: "var(--bg-surface)",
           }}
         >
           <Breadcrumbs
@@ -466,6 +467,17 @@ export function ProjectDetailView() {
             )}
           </div>
         </div>
+
+        {/* The one structural rule between the project info block and the */}
+        {/* tickets workspace — v3 framing spec. Nothing else in the detail */}
+        {/* view gets a black rule. */}
+        <div
+          style={{
+            height: 0,
+            borderTop: "1px solid var(--rule-strong)",
+            flexShrink: 0,
+          }}
+        />
 
         <div
           style={{
