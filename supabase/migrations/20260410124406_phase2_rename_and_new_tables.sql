@@ -14,12 +14,55 @@
 begin;
 
 -- ---------------------------------------------------------------------------
+-- 0. Phase 1 cleanup (absorbed from the never-applied drop_ai_tables migration)
+-- ---------------------------------------------------------------------------
+-- The Phase 1 roadmap included a drop_ai_tables migration that was merged to
+-- main but never applied to the remote DB. Its contents are folded in here so
+-- Phase 2 can run against a Phase 1 DB in one shot. If drop_ai_tables is
+-- later re-applied, it is a no-op because the tables and enums are already
+-- gone.
+--
+-- Note: PostgreSQL does NOT support `IF EXISTS` on `ALTER PUBLICATION ... DROP
+-- TABLE`, so each DROP TABLE below is unconditional. The tables are
+-- guaranteed to be in the publication by the initial schema.
+
+alter publication supabase_realtime drop table artifacts;
+alter publication supabase_realtime drop table chat_messages;
+alter publication supabase_realtime drop table worker_jobs;
+
+-- Storage policies on the context-files bucket, then the bucket itself.
+drop policy if exists "Authenticated users can upload context files" on storage.objects;
+drop policy if exists "Authenticated users can read context files" on storage.objects;
+drop policy if exists "Authenticated users can delete context files" on storage.objects;
+
+delete from storage.objects where bucket_id = 'context-files';
+delete from storage.buckets where id = 'context-files';
+
+-- Drop the AI tables. Cascade cleans up indexes, triggers, policies, FKs.
+drop table if exists worker_jobs cascade;
+drop table if exists chat_messages cascade;
+drop table if exists artifacts cascade;
+drop table if exists context_files cascade;
+
+-- `created_by` on cards (the Phase 1 ai-vs-user origin flag) goes away
+-- before the card_creator enum can be dropped.
+alter table cards drop column if exists created_by;
+
+-- Drop the Phase 1 AI enums.
+drop type if exists artifact_type;
+drop type if exists artifact_status;
+drop type if exists chat_role;
+drop type if exists job_status;
+drop type if exists card_creator;
+drop type if exists file_type;
+
+-- ---------------------------------------------------------------------------
 -- 1. Clean slate for publication + policies + triggers on the to-be-renamed tables
 -- ---------------------------------------------------------------------------
 
--- Cards was the only table in the publication after Phase 1. Drop it so we
--- have explicit control over publication membership after the rename.
-alter publication supabase_realtime drop table if exists cards;
+-- Cards was the only non-AI table in the publication after Phase 1. Drop it
+-- so we have explicit control over publication membership after the rename.
+alter publication supabase_realtime drop table cards;
 
 -- Drop existing RLS policies by their literal Phase 1 names. They'll be
 -- recreated at the end of the migration against the renamed tables.
