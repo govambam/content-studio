@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { NewProjectModal } from "./components/NewProjectModal";
 import { KanbanBoard } from "./components/KanbanBoard";
@@ -19,6 +19,22 @@ function App() {
   const { files: contextFiles, uploadFile, deleteFile } = useContextFiles(activeProjectId);
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
+
+  // Escape key closes panels and modals
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showNewProject) setShowNewProject(false);
+        else if (showContext) setShowContext(false);
+        else if (expandedCardId) {
+          setExpandedCardId(null);
+          refetchCards();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showNewProject, showContext, expandedCardId, refetchCards]);
 
   const [generating, setGenerating] = useState(false);
 
