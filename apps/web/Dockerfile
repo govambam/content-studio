@@ -14,6 +14,10 @@ COPY packages/shared/ ./packages/shared/
 COPY apps/web/ ./apps/web/
 COPY tsconfig.json ./
 
+# Vite bakes VITE_* env vars at build time — pass them as build args
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build shared + web
 RUN npm run build -w packages/shared && npm run build -w apps/web
 
