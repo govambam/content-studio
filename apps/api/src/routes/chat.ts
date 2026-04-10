@@ -134,12 +134,25 @@ chat.post("/cards/:cardId/chat", async (c) => {
       chatResponse = rawResponse;
     }
 
-    // Update card summary if content was updated and we're on details tab
-    if (updatedContent && activeTab === "details") {
-      await supabase
-        .from("cards")
-        .update({ summary: updatedContent })
-        .eq("id", cardId);
+    // Persist updated content based on active tab
+    if (updatedContent) {
+      if (activeTab === "details") {
+        await supabase
+          .from("cards")
+          .update({ summary: updatedContent })
+          .eq("id", cardId);
+      } else if (activeTab === "demo-flow" || activeTab === "script") {
+        // Update the matching artifact
+        const artifactType = activeTab;
+        const matchingArtifact = artifacts?.find((a) => a.type === artifactType);
+        if (matchingArtifact) {
+          const artifactId = (matchingArtifact as unknown as { id: string }).id;
+          await supabase
+            .from("artifacts")
+            .update({ content: updatedContent, status: "draft" })
+            .eq("id", artifactId);
+        }
+      }
     }
 
     // Save assistant message
