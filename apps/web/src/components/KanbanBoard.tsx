@@ -9,6 +9,7 @@ interface CardWithArtifacts extends Card {
 interface KanbanBoardProps {
   cards: CardWithArtifacts[];
   onCardClick: (cardId: string) => void;
+  onGenerateMore?: () => void;
 }
 
 const STAGES: Stage[] = ["unreviewed", "considering", "in_production", "published"];
@@ -20,7 +21,7 @@ const STAGE_LABELS: Record<Stage, string> = {
   published: "PUBLISHED",
 };
 
-export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
+export function KanbanBoard({ cards, onCardClick, onGenerateMore }: KanbanBoardProps) {
   const cardsByStage = STAGES.reduce(
     (acc, stage) => {
       acc[stage] = cards.filter((c) => c.stage === stage);
@@ -101,8 +102,9 @@ export function KanbanBoard({ cards, onCardClick }: KanbanBoardProps) {
               />
             ))}
 
-            {stage === "unreviewed" && (
+            {stage === "unreviewed" && onGenerateMore && (
               <button
+                onClick={onGenerateMore}
                 style={{
                   width: "100%",
                   padding: "10px",
