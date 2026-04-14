@@ -15,7 +15,7 @@ import "./lib/env";
 // allow override via VITE_LD_CLIENT_ID for local dev / staging envs.
 // The default below points at the Macroscope content-studio demo env.
 const LD_CLIENT_ID =
-  import.meta.env.VITE_LD_CLIENT_ID ?? "69deb82234109a0a96db7e42";
+  import.meta.env.VITE_LD_CLIENT_ID ?? "69deb82234109a0a96db7e43";
 
 async function bootstrap() {
   const LDProvider = await asyncWithLDProvider({
