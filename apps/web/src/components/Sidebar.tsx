@@ -3,6 +3,7 @@ import type { Label } from "@content-studio/shared";
 import { LabelChip } from "./LabelChip";
 import { NewLabelForm } from "./NewLabelForm";
 import { Wordmark } from "./Wordmark";
+import { DemoErrorButton } from "./DemoErrorButton";
 
 interface SidebarProps {
   labels: Label[];
@@ -195,6 +196,16 @@ export function Sidebar({
             + New Label
           </button>
         )}
+      </div>
+
+      <div
+        style={{
+          padding: "12px 12px 0",
+          borderTop: "1px solid var(--rule-faint)",
+          marginTop: "8px",
+        }}
+      >
+        <DemoErrorButton />
       </div>
     </aside>
   );

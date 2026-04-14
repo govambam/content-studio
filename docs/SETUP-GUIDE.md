@@ -45,6 +45,7 @@ No Anthropic key is required. Phase 1 removed all AI features.
 | `FRONTEND_URL` | CORS origin for the API | The deployed Vite URL, or `http://localhost:5173` in dev |
 | `NODE_ENV` | `development` locally, `production` on Railway | — |
 | `SENTRY_DSN` | API error reporting DSN. Required in production; optional locally. | Sentry → Project Settings → Client Keys (DSN) |
+| `VITE_LD_CLIENT_ID` | LaunchDarkly client-side ID (frontend). Optional — defaults to the demo env client-side ID baked into `apps/web/src/main.tsx`. Override per-environment if you point at a different LD project. | LaunchDarkly dashboard → Account settings → Projects → Environment → Client-side ID |
 
 Copy `.env.example` to `.env` and fill in the Supabase keys to run locally.
 
