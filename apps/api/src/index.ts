@@ -1,3 +1,4 @@
+import { Sentry } from "./instrument.js";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -6,6 +7,7 @@ import projects from "./routes/projects.js";
 import tickets from "./routes/tickets.js";
 import comments from "./routes/comments.js";
 import assets from "./routes/assets.js";
+import demo from "./routes/demo.js";
 import { logger } from "./lib/logger.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { securityHeaders } from "./middleware/securityHeaders.js";
@@ -40,12 +42,14 @@ app.route("/api/projects", projects);
 app.route("/api", tickets);
 app.route("/api", comments);
 app.route("/api", assets);
+app.route("/demo", demo);
 
 app.notFound((c) =>
   c.json({ data: null, error: "not found" }, 404)
 );
 
 app.onError((err, c) => {
+  Sentry.captureException(err);
   const log = c.get("logger") ?? logger;
   log.error(
     {

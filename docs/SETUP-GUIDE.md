@@ -44,6 +44,7 @@ No Anthropic key is required. Phase 1 removed all AI features.
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (backend only — never ship to the frontend) | Same place |
 | `FRONTEND_URL` | CORS origin for the API | The deployed Vite URL, or `http://localhost:5173` in dev |
 | `NODE_ENV` | `development` locally, `production` on Railway | — |
+| `SENTRY_DSN` | API error reporting DSN. Required in production; optional locally. | Sentry → Project Settings → Client Keys (DSN) |
 
 Copy `.env.example` to `.env` and fill in the Supabase keys to run locally.
 
