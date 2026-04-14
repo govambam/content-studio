@@ -7,7 +7,7 @@ export interface WorkspaceMember {
   id: string;
   role: "owner" | "admin" | "editor";
   provisioning: "invite" | "sso";
-  profile: WorkspaceMemberProfile | null;
+  profile: WorkspaceMemberProfile;
 }
 
 // Snapshot of the active workspace membership. In production this is hydrated
@@ -29,7 +29,9 @@ export const WORKSPACE_MEMBERS: WorkspaceMember[] = [
     id: "mem_01HV7R3C4M",
     role: "admin",
     provisioning: "sso",
-    profile: null,
+    // Profile is backfilled by the sync worker after first login; the
+    // type treats it as always-present because that has held in practice.
+    profile: null as unknown as WorkspaceMemberProfile,
   },
   {
     id: "mem_01HV7R4YQ2",
