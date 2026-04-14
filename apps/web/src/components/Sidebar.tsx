@@ -3,7 +3,7 @@ import type { Label } from "@content-studio/shared";
 import { LabelChip } from "./LabelChip";
 import { NewLabelForm } from "./NewLabelForm";
 import { Wordmark } from "./Wordmark";
-import { DemoErrorButton } from "./DemoErrorButton";
+import { InviteTeammateButton } from "./InviteTeammateButton";
 
 interface SidebarProps {
   labels: Label[];
@@ -205,7 +205,7 @@ export function Sidebar({
           marginTop: "8px",
         }}
       >
-        <DemoErrorButton />
+        <InviteTeammateButton />
       </div>
     </aside>
   );
