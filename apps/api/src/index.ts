@@ -42,7 +42,7 @@ app.route("/api/projects", projects);
 app.route("/api", tickets);
 app.route("/api", comments);
 app.route("/api", assets);
-app.route("/demo", demo);
+app.route("/api/demo", demo);
 
 app.notFound((c) =>
   c.json({ data: null, error: "not found" }, 404)
