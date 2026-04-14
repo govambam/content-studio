@@ -25,6 +25,12 @@ async function bootstrap() {
       key: "anonymous",
       anonymous: true,
     },
+    options: {
+      application: {
+        id: "content-studio-web",
+        version: import.meta.env.VITE_RELEASE_SHA ?? "dev",
+      },
+    },
     // Avoid waiting on streaming connection before first render.
     timeout: 2,
   });
