@@ -7,7 +7,7 @@ import projects from "./routes/projects.js";
 import tickets from "./routes/tickets.js";
 import comments from "./routes/comments.js";
 import assets from "./routes/assets.js";
-import demo from "./routes/demo.js";
+import invites from "./routes/invites.js";
 import { logger } from "./lib/logger.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { securityHeaders } from "./middleware/securityHeaders.js";
@@ -42,7 +42,7 @@ app.route("/api/projects", projects);
 app.route("/api", tickets);
 app.route("/api", comments);
 app.route("/api", assets);
-app.route("/api/demo", demo);
+app.route("/api/invites", invites);
 
 app.notFound((c) =>
   c.json({ data: null, error: "not found" }, 404)
@@ -51,6 +51,7 @@ app.notFound((c) =>
 app.onError((err, c) => {
   Sentry.captureException(err);
   const log = c.get("logger") ?? logger;
+  const requestId = c.get("requestId");
   log.error(
     {
       err: err instanceof Error ? { message: err.message, stack: err.stack } : err,
@@ -59,7 +60,7 @@ app.onError((err, c) => {
     },
     "unhandled error"
   );
-  return c.json({ data: null, error: "internal error" }, 500);
+  return c.json({ data: null, error: "internal error", requestId }, 500);
 });
 
 const port = parseInt(process.env.PORT || "3001", 10);

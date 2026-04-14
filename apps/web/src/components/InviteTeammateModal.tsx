@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
+import { ENV } from "../lib/env";
 
 interface InviteTeammateModalProps {
   onClose: () => void;
+}
+
+interface InviteErrorState {
+  message: string;
+  requestId?: string;
 }
 
 export function InviteTeammateModal({ onClose }: InviteTeammateModalProps) {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<InviteErrorState | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -21,10 +28,39 @@ export function InviteTeammateModal({ onClose }: InviteTeammateModalProps) {
     const trimmed = email.trim();
     if (!trimmed || submitting) return;
     setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    setSubmitting(false);
-    setSuccessMessage(`Invitation sent to ${trimmed}.`);
-    setEmail("");
+    setErrorState(null);
+    setSuccessMessage(null);
+
+    try {
+      const res = await fetch(`${ENV.apiUrl}/invites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const requestId = res.headers.get("x-request-id") ?? undefined;
+      const body = (await res.json().catch(() => null)) as
+        | { data: unknown; error: string | null; requestId?: string }
+        | null;
+
+      if (!res.ok) {
+        setErrorState({
+          message:
+            "We couldn't send the invitation right now. Our team has been notified.",
+          requestId: body?.requestId ?? requestId,
+        });
+        return;
+      }
+
+      setSuccessMessage(`Invitation sent to ${trimmed}.`);
+      setEmail("");
+    } catch {
+      setErrorState({
+        message:
+          "We couldn't send the invitation right now. Our team has been notified.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -96,6 +132,7 @@ export function InviteTeammateModal({ onClose }: InviteTeammateModalProps) {
             onChange={(e) => {
               setEmail(e.target.value);
               if (successMessage) setSuccessMessage(null);
+              if (errorState) setErrorState(null);
             }}
             placeholder="teammate@example.com"
             autoFocus
@@ -134,6 +171,38 @@ export function InviteTeammateModal({ onClose }: InviteTeammateModalProps) {
             }}
           >
             {successMessage}
+          </div>
+        )}
+
+        {errorState && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "16px",
+              padding: "10px 12px",
+              border: "1px solid #B91C1C",
+              background: "#FEF2F2",
+              fontSize: "12px",
+              fontWeight: 500,
+              color: "#7F1D1D",
+              fontFamily: "var(--font-sans)",
+              lineHeight: 1.45,
+            }}
+          >
+            <div>{errorState.message}</div>
+            {errorState.requestId && (
+              <div
+                style={{
+                  marginTop: "4px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "10px",
+                  color: "#7F1D1D",
+                  opacity: 0.75,
+                }}
+              >
+                ref: {errorState.requestId}
+              </div>
+            )}
           </div>
         )}
 
