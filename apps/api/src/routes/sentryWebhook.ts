@@ -4,6 +4,21 @@ import { logger, type Logger } from "../lib/logger.js";
 const sentryWebhook = new Hono();
 
 interface SentryWebhookPayload {
+  // Legacy webhooks plugin fields (top-level)
+  id?: string;
+  message?: string;
+  culprit?: string;
+  url?: string;
+  project?: string;
+  project_slug?: string;
+  project_name?: string;
+  event?: {
+    event_id?: string;
+    transaction?: string;
+    web_url?: string;
+    tags?: Array<[string, string]>;
+  };
+  // Internal Integration / Sentry App fields (nested under data)
   action?: string;
   data?: {
     issue?: {
@@ -23,17 +38,42 @@ interface SentryWebhookPayload {
 }
 
 function buildIssueUrl(payload: SentryWebhookPayload): string | null {
-  const issue = payload.data?.issue;
-  if (!issue) return null;
-  return issue.permalink ?? issue.web_url ?? null;
+  return (
+    payload.data?.issue?.permalink ??
+    payload.data?.issue?.web_url ??
+    payload.url ??
+    null
+  );
+}
+
+function extractIssueShortId(payload: SentryWebhookPayload): string {
+  const nested = payload.data?.issue?.shortId ?? payload.data?.issue?.id;
+  if (nested) return nested;
+  const url = payload.url ?? "";
+  const m = url.match(/\/issues\/(\d+)/);
+  if (m) return m[1];
+  return payload.id ?? "unknown";
+}
+
+function extractIssueTitle(payload: SentryWebhookPayload): string {
+  return (
+    payload.data?.issue?.title ?? payload.message ?? "a new Sentry error"
+  );
+}
+
+function extractTransaction(payload: SentryWebhookPayload): string | undefined {
+  return (
+    payload.data?.event?.transaction ??
+    payload.event?.transaction ??
+    undefined
+  );
 }
 
 function buildAgentQuery(payload: SentryWebhookPayload): string {
-  const issue = payload.data?.issue;
   const url = buildIssueUrl(payload);
-  const shortId = issue?.shortId ?? issue?.id ?? "unknown";
-  const title = issue?.title ?? "a new Sentry error";
-  const transaction = payload.data?.event?.transaction;
+  const shortId = extractIssueShortId(payload);
+  const title = extractIssueTitle(payload);
+  const transaction = extractTransaction(payload);
 
   return [
     `A new Sentry issue just fired: ${shortId} — ${title}.`,
@@ -51,16 +91,15 @@ async function postInvestigatingMessage(
   payload: SentryWebhookPayload,
   log: Logger
 ): Promise<void> {
-  const issue = payload.data?.issue;
-  const shortId = issue?.shortId ?? issue?.id ?? "new issue";
-  const title = issue?.title ?? "a new error";
-  const transaction = payload.data?.event?.transaction;
+  const shortId = extractIssueShortId(payload);
+  const title = extractIssueTitle(payload);
+  const transaction = extractTransaction(payload);
   const url = buildIssueUrl(payload);
 
   const lines = [
     `:mag: Macroscope is investigating *${shortId}* — ${title}`,
     transaction ? `Endpoint: \`${transaction}\`` : "",
-    url ? `Sentry: <${url}|view issue>` : "",
+    url ? `Sentry: ${url}` : "",
     "Stand by for a fix PR…",
   ].filter(Boolean);
 
@@ -103,7 +142,7 @@ sentryWebhook.post("/", async (c) => {
   log.info(
     {
       action: payload.action,
-      issueShortId: payload.data?.issue?.shortId,
+      issueShortId: extractIssueShortId(payload),
       issueUrl,
     },
     "sentry webhook received"
