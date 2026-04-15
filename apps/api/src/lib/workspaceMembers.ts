@@ -49,6 +49,8 @@ export function isAlreadyMember(
   members: WorkspaceMember[] = WORKSPACE_MEMBERS
 ): boolean {
   const target = email.toLowerCase();
-  const existingEmails = members.map((m) => m.profile.email.toLowerCase());
+  const existingEmails = members
+    .filter((m) => m.profile != null)
+    .map((m) => m.profile.email.toLowerCase());
   return existingEmails.includes(target);
 }
