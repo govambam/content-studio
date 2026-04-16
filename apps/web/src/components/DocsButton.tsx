@@ -1,7 +1,7 @@
 export function DocsButton() {
   return (
     <a
-      href="https://docs-production-40b1.up.railway.app/docs/intro"
+      href="https://content-studio-docs.vercel.app/docs/intro"
       target="_blank"
       rel="noopener noreferrer"
       style={{
