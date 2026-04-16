@@ -4,6 +4,7 @@ import { LabelChip } from "./LabelChip";
 import { NewLabelForm } from "./NewLabelForm";
 import { Wordmark } from "./Wordmark";
 import { InviteTeammateButton } from "./InviteTeammateButton";
+import { DocsButton } from "./DocsButton";
 
 interface SidebarProps {
   labels: Label[];
@@ -203,9 +204,13 @@ export function Sidebar({
           padding: "12px 12px 0",
           borderTop: "1px solid var(--rule-faint)",
           marginTop: "8px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
         }}
       >
         <InviteTeammateButton />
+        <DocsButton />
       </div>
     </aside>
   );
