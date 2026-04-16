@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ContentStatus, Project } from "@content-studio/shared";
 import { Sidebar } from "../components/Sidebar";
@@ -6,6 +6,7 @@ import { KanbanBoard } from "../components/KanbanBoard";
 import { ProjectCard } from "../components/ProjectCard";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { SkeletonKanbanBoard } from "../components/Skeleton";
+import { ExportMenu } from "../components/ExportMenu";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
 import { track } from "../lib/analytics";
@@ -21,6 +22,8 @@ export function HomeView() {
   } = useProjects();
   const [activeFilterIds, setActiveFilterIds] = useState<Set<string>>(new Set());
   const [showNewProject, setShowNewProject] = useState(false);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const getBoardTarget = useCallback(() => boardRef.current, []);
 
   const toggleFilter = (labelId: string) => {
     setActiveFilterIds((prev) => {
@@ -167,30 +170,43 @@ export function HomeView() {
               {activeFilterIds.size > 0 ? " (filtered)" : ""}
             </div>
           </div>
-          <button
-            onClick={() => {
-              track("new_project_modal_opened", {});
-              setShowNewProject(true);
-            }}
-            style={{
-              background: "var(--text-primary)",
-              color: "#FFFFFF",
-              border: "none",
-              borderRadius: "0",
-              padding: "8px 16px",
-              fontSize: "12px",
-              fontWeight: 700,
-              fontFamily: "var(--font-sans)",
-              cursor: "pointer",
-            }}
-          >
-            + New Project
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <ExportMenu viewName="Home" getTarget={getBoardTarget} />
+            <button
+              onClick={() => {
+                track("new_project_modal_opened", {});
+                setShowNewProject(true);
+              }}
+              style={{
+                background: "var(--text-primary)",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "0",
+                padding: "8px 16px",
+                fontSize: "12px",
+                fontWeight: 700,
+                fontFamily: "var(--font-sans)",
+                cursor: "pointer",
+              }}
+            >
+              + New Project
+            </button>
+          </div>
         </header>
 
         {projectsLoading ? (
           <SkeletonKanbanBoard />
         ) : (
+          <div
+            ref={boardRef}
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              minHeight: 0,
+              background: "var(--bg-primary)",
+            }}
+          >
           <KanbanBoard<Project>
             items={visibleProjects}
             renderItem={renderProjectCard}
@@ -243,6 +259,7 @@ export function HomeView() {
               ) : undefined
             }
           />
+          </div>
         )}
       </main>
 

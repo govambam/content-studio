@@ -9,6 +9,7 @@ import comments from "./routes/comments.js";
 import assets from "./routes/assets.js";
 import invites from "./routes/invites.js";
 import sentryWebhook from "./routes/sentryWebhook.js";
+import views from "./routes/views.js";
 import { logger } from "./lib/logger.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { securityHeaders } from "./middleware/securityHeaders.js";
@@ -45,6 +46,7 @@ app.route("/api", comments);
 app.route("/api", assets);
 app.route("/api/invites", invites);
 app.route("/api/webhooks/sentry", sentryWebhook);
+app.route("/api/views", views);
 
 app.notFound((c) =>
   c.json({ data: null, error: "not found" }, 404)
