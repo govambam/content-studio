@@ -75,12 +75,23 @@ function buildAgentQuery(payload: SentryWebhookPayload): string {
   const title = extractIssueTitle(payload);
   const transaction = extractTransaction(payload);
 
+  const instructions = `Investigate this issue end-to-end for the govambam/content-studio repository and do the following:
+
+* Get the issue details and recent events to understand the error type, stack trace, and culprit.
+* Use code research on the content-studio repo to find the relevant source code at the file and function identified in the error.
+* Assess whether the root cause is obviously identifiable and fixable.
+    * Auto-fixable patterns include:
+        * Null reference, missing guard clause, incorrect type, unhandled promise, off-by-one, missing fallback
+        * Adding capability detection (e.g. WebGL support checks) before calling external libraries
+* If the issue is diagnosable, create a PR in the content-studio repo with a fix. The PR description should reference the Sentry issue link and explain the root cause and fix.
+* After creating the PR, add govambam as a reviewer.`;
+
   return [
     `A new Sentry issue just fired: ${shortId} — ${title}.`,
     transaction ? `Affected transaction: ${transaction}.` : "",
     url ? `Sentry issue URL: ${url}` : "",
     "",
-    "Investigate this issue end-to-end for the govambam/content-studio repository, following the Custom Agent Instructions saved in this workspace.",
+    instructions,
   ]
     .filter(Boolean)
     .join("\n");
