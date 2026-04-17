@@ -83,8 +83,7 @@ function buildAgentQuery(payload: SentryWebhookPayload): string {
     * Auto-fixable patterns include:
         * Null reference, missing guard clause, incorrect type, unhandled promise, off-by-one, missing fallback
         * Adding capability detection (e.g. WebGL support checks) before calling external libraries
-* If the issue is diagnosable, create a PR in the content-studio repo with a fix. The PR description should reference the Sentry issue link and explain the root cause and fix.
-* After creating the PR, add govambam as a reviewer.`;
+* If the issue is diagnosable, create a PR in the content-studio repo with a fix. The PR description should reference the Sentry issue link and explain the root cause and fix.`;
 
   return [
     `A new Sentry issue just fired: ${shortId} — ${title}.`,
