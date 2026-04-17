@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { logger, type Logger } from "../lib/logger.js";
+import { logger } from "../lib/logger.js";
 
 const sentryWebhook = new Hono();
 
@@ -96,47 +96,10 @@ function buildAgentQuery(payload: SentryWebhookPayload): string {
     .join("\n");
 }
 
-async function postInvestigatingMessage(
-  slackWebhookUrl: string,
-  payload: SentryWebhookPayload,
-  log: Logger
-): Promise<void> {
-  const shortId = extractIssueShortId(payload);
-  const title = extractIssueTitle(payload);
-  const transaction = extractTransaction(payload);
-  const url = buildIssueUrl(payload);
-
-  const lines = [
-    `:mag: Macroscope is investigating *${shortId}* — ${title}`,
-    transaction ? `Endpoint: \`${transaction}\`` : "",
-    url ? `Sentry: ${url}` : "",
-    "Stand by for a fix PR…",
-  ].filter(Boolean);
-
-  try {
-    const res = await fetch(slackWebhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: lines.join("\n") }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      log.warn(
-        { status: res.status, body },
-        "slack investigating-message post failed"
-      );
-    }
-  } catch (err) {
-    log.warn({ err }, "slack investigating-message post threw");
-  }
-}
-
 sentryWebhook.post("/", async (c) => {
   const macroscopeUrl = process.env.MACROSCOPE_WEBHOOK_URL;
   const macroscopeSecret = process.env.MACROSCOPE_WEBHOOK_SECRET;
   const slackChannelId = process.env.MACROSCOPE_SLACK_CHANNEL_ID ?? "C0ASQPY3GE7";
-  const slackInvestigatingWebhookUrl =
-    process.env.SLACK_INVESTIGATING_WEBHOOK_URL;
 
   if (!macroscopeUrl || !macroscopeSecret) {
     throw new Error(
@@ -157,10 +120,6 @@ sentryWebhook.post("/", async (c) => {
     },
     "sentry webhook received"
   );
-
-  if (slackInvestigatingWebhookUrl) {
-    await postInvestigatingMessage(slackInvestigatingWebhookUrl, payload, log);
-  }
 
   const response = await fetch(macroscopeUrl, {
     method: "POST",
