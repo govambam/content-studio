@@ -7,7 +7,7 @@ export interface WorkspaceMember {
   id: string;
   role: "owner" | "admin" | "editor";
   provisioning: "invite" | "sso";
-  profile: WorkspaceMemberProfile;
+  profile: WorkspaceMemberProfile | null;
 }
 
 // Snapshot of the active workspace membership. In production this is hydrated
@@ -29,9 +29,8 @@ export const WORKSPACE_MEMBERS: WorkspaceMember[] = [
     id: "mem_01HV7R3C4M",
     role: "admin",
     provisioning: "sso",
-    // Profile is backfilled by the sync worker after first login; the
-    // type treats it as always-present because that has held in practice.
-    profile: null as unknown as WorkspaceMemberProfile,
+    // Profile is backfilled by the sync worker after first login.
+    profile: null,
   },
   {
     id: "mem_01HV7R4YQ2",
@@ -49,6 +48,8 @@ export function isAlreadyMember(
   members: WorkspaceMember[] = WORKSPACE_MEMBERS
 ): boolean {
   const target = email.toLowerCase();
-  const existingEmails = members.map((m) => m.profile.email.toLowerCase());
+  const existingEmails = members
+    .filter((m): m is WorkspaceMember & { profile: WorkspaceMemberProfile } => m.profile != null)
+    .map((m) => m.profile.email.toLowerCase());
   return existingEmails.includes(target);
 }
