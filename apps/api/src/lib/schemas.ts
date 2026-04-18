@@ -107,6 +107,16 @@ export const reorderTicketsSchema = z.object({
     }),
 });
 
+// View export
+export const exportViewSchema = z.object({
+  imageData: z
+    .string()
+    .min(1, "imageData is required")
+    .regex(/^[A-Za-z0-9+/=\s]+$/, "imageData must be base64 (no data-URL prefix)"),
+  viewName: nonEmptyString,
+  format: z.enum(["pdf", "png"]),
+});
+
 // Params
 export const idParam = z.object({ id: uuidSchema });
 export const ticketIdParam = z.object({ ticketId: uuidSchema });
