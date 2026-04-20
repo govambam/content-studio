@@ -23,7 +23,8 @@ export type ActivityEventType =
   | "status_changed"
   | "comment_added"
   | "asset_uploaded"
-  | "asset_deleted";
+  | "asset_deleted"
+  | "slack_notification_posted";
 
 export interface Label {
   id: string;
@@ -92,6 +93,27 @@ export interface ActivityEvent {
 export type ActivityFeedItem =
   | ({ kind: "event" } & ActivityEvent)
   | ({ kind: "comment" } & Comment);
+
+export interface SlackIntegration {
+  id: string;
+  webhook_url: string;
+  channel_name: string;
+  enabled: boolean;
+  enabled_statuses: ContentStatus[];
+  created_at: string;
+  updated_at: string;
+}
+
+// A redacted view of a SlackIntegration safe to send to the frontend.
+// The webhook URL is a secret; callers only need to know whether one
+// is configured.
+export interface SlackIntegrationSummary {
+  configured: boolean;
+  channel_name: string;
+  enabled: boolean;
+  enabled_statuses: ContentStatus[];
+  updated_at: string | null;
+}
 
 export interface ApiResponse<T> {
   data: T | null;
