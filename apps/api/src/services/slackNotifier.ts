@@ -30,6 +30,18 @@ interface BuildPayloadArgs {
   newStatus: ContentStatus;
 }
 
+// Slack uses `&`, `<`, `>` as control characters in mrkdwn text, so
+// any user-supplied string interpolated into a block must HTML-escape
+// those three before the send. The `&` replacement runs first so the
+// encoded ampersand doesn't get re-escaped on the next passes.
+// https://docs.slack.dev/messaging/formatting-message-text
+function escapeSlackMrkdwn(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 // Builds a Slack Block Kit payload. The block layout is intentionally
 // small — the Slack docs recommend <=5 blocks for an incoming webhook
 // to stay readable in busy channels. A fallback `text` field is
@@ -44,6 +56,10 @@ function buildSlackPayload({
   const deeplink = `${frontendUrl.replace(/\/$/, "")}/projects/${ticket.project_id}/tickets/${ticket.id}`;
   const statusLabel = STATUS_LABELS[newStatus];
   const headerEmoji = newStatus === "done" ? ":white_check_mark:" : ":eyes:";
+  // `|` is the link-body separator inside `<url|text>`, so replace it
+  // in the link label on top of the standard mrkdwn escapes.
+  const linkLabel = escapeSlackMrkdwn(ticket.title).replace(/\|/g, "｜");
+  const projectLabel = projectTitle ? escapeSlackMrkdwn(projectTitle) : "—";
 
   return {
     text: `${statusLabel}: ${ticket.title}`,
@@ -61,11 +77,11 @@ function buildSlackPayload({
         fields: [
           {
             type: "mrkdwn",
-            text: `*Ticket*\n<${deeplink}|${ticket.title}>`,
+            text: `*Ticket*\n<${deeplink}|${linkLabel}>`,
           },
           {
             type: "mrkdwn",
-            text: `*Project*\n${projectTitle ?? "—"}`,
+            text: `*Project*\n${projectLabel}`,
           },
         ],
       },

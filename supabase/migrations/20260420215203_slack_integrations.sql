@@ -5,10 +5,11 @@
 -- single-row table: we don't have workspaces in this app, so there's
 -- one Slack integration per deployment.
 --
--- The `singleton` column + unique index enforce "only one row". The
--- API always upserts using the literal value `true`, so `SET NULL`
--- is never hit. A partial unique index would also work; a plain
--- unique index is simpler and equally cheap at one row.
+-- The `singleton` column + unique index + CHECK constraint enforce
+-- "only one row" at the DB level: the CHECK blocks any direct INSERT
+-- that would sneak in with `singleton = false`, and the unique index
+-- catches a second row with `singleton = true`. The API always upserts
+-- with the literal value `true`.
 --
 -- `enabled_statuses` lets operators pick which status transitions
 -- trigger a post. Stored as a text[] of content_status literals so
@@ -21,7 +22,7 @@ begin;
 
 create table slack_integrations (
   id uuid primary key default gen_random_uuid(),
-  singleton boolean not null default true,
+  singleton boolean not null default true check (singleton is true),
   webhook_url text not null,
   channel_name text not null default '',
   enabled boolean not null default true,

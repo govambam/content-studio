@@ -23,6 +23,7 @@ export function SlackIntegrationModal({ onClose }: SlackIntegrationModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -32,12 +33,17 @@ export function SlackIntegrationModal({ onClose }: SlackIntegrationModalProps) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
+  // Only seed the form from the fetched summary on first arrival.
+  // Re-firing this effect after a save would overwrite any edits the
+  // user has already made, so the `hydrated` flag keeps the form
+  // stable once it's populated.
   useEffect(() => {
-    if (!summary) return;
+    if (!summary || hydrated) return;
     setChannelName(summary.channel_name);
     setEnabled(summary.enabled);
     setEnabledStatuses(new Set(summary.enabled_statuses));
-  }, [summary]);
+    setHydrated(true);
+  }, [summary, hydrated]);
 
   const toggleStatus = (status: ContentStatus) => {
     setEnabledStatuses((prev) => {
