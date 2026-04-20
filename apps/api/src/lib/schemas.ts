@@ -107,6 +107,30 @@ export const reorderTicketsSchema = z.object({
     }),
 });
 
+// Slack integration
+// Slack incoming-webhook URLs all live under https://hooks.slack.com.
+// Enforce that shape so obvious misconfigurations (a random URL in the
+// settings form) fail fast instead of producing opaque HTTP errors at
+// post time.
+export const slackWebhookUrl = z
+  .string()
+  .url()
+  .startsWith("https://hooks.slack.com/", "must be a Slack incoming webhook URL");
+
+export const upsertSlackIntegrationSchema = z.object({
+  webhook_url: slackWebhookUrl,
+  channel_name: z.string().trim().max(80).default(""),
+  enabled: z.boolean().default(true),
+  enabled_statuses: z
+    .array(contentStatusSchema)
+    .min(1, "at least one status must be enabled")
+    .max(4)
+    .refine((s) => new Set(s).size === s.length, {
+      message: "enabled_statuses must not contain duplicates",
+    })
+    .default(["in_review", "done"]),
+});
+
 // Params
 export const idParam = z.object({ id: uuidSchema });
 export const ticketIdParam = z.object({ ticketId: uuidSchema });

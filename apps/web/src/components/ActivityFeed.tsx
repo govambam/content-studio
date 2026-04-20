@@ -404,6 +404,15 @@ function formatEvent(event: ActivityEvent): string {
       const filename = (event.meta?.filename as string | undefined) ?? "file";
       return `Asset "${filename}" deleted`;
     }
+    case "slack_notification_posted": {
+      const channel = event.meta?.channel as string | undefined;
+      const status = event.meta?.status as ContentStatus | undefined;
+      const statusLabel = status ? STATUS_LABELS[status] : "";
+      const channelSuffix = channel ? ` in ${channel}` : "";
+      return statusLabel
+        ? `Posted to Slack${channelSuffix} — status now ${statusLabel}`
+        : `Posted to Slack${channelSuffix}`;
+    }
     default:
       return event.event_type;
   }
