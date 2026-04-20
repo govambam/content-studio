@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { supabase } from "../db/supabase.js";
-import { logger } from "../lib/logger.js";
+import { logger, type Logger } from "../lib/logger.js";
 import { parseBody, parseParams } from "../lib/validate.js";
 import {
   createTicketSchema,
@@ -10,10 +10,12 @@ import {
   ticketIdParam,
   updateTicketSchema,
 } from "../lib/schemas.js";
+import { notifyTicketStatusChange } from "../services/slackNotifier.js";
 import type {
   ActivityEventType,
   ActivityFeedItem,
   ApiResponse,
+  ContentStatus,
   Ticket,
 } from "@content-studio/shared";
 
@@ -311,10 +313,44 @@ tickets.put("/tickets/:id", async (c) => {
       clientId,
       log
     );
+    void postSlackNotification(data as Ticket, patch.status as ContentStatus, log);
   }
 
   return c.json({ data, error: null } satisfies ApiResponse<Ticket>);
 });
+
+// Fire-and-forget Slack post + activity event. Any HTTP failure is
+// swallowed by the notifier itself; we only record an activity event
+// when the post went out. The PUT handler does not await this so a
+// slow Slack response never blocks the UI.
+async function postSlackNotification(
+  ticket: Ticket,
+  newStatus: ContentStatus,
+  log: Logger
+): Promise<void> {
+  const { data: projectRow } = await supabase
+    .from("projects")
+    .select("title")
+    .eq("id", ticket.project_id)
+    .maybeSingle();
+
+  const result = await notifyTicketStatusChange({
+    ticket,
+    projectTitle: projectRow?.title ?? null,
+    newStatus,
+    log,
+  });
+
+  if (result.posted) {
+    await writeActivityEvent(
+      ticket.id,
+      "slack_notification_posted",
+      { channel: result.channel, status: newStatus },
+      null,
+      log
+    );
+  }
+}
 
 // Merged activity + comments feed for the ticket (reverse-chronological)
 tickets.get("/tickets/:ticketId/activity", async (c) => {
