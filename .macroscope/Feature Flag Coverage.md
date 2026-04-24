@@ -9,7 +9,7 @@ tools:
   - browse_code
   - git_tools
   - modify_pr
-include:
+exclude:
   - "apps/web/src/**"
   - "apps/api/src/**"
 ---
