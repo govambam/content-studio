@@ -46,6 +46,12 @@ No Anthropic key is required. Phase 1 removed all AI features.
 | `NODE_ENV` | `development` locally, `production` on Railway | — |
 | `SENTRY_DSN` | API error reporting DSN. Required in production; optional locally. | Sentry → Project Settings → Client Keys (DSN) |
 | `VITE_LD_CLIENT_ID` | LaunchDarkly client-side ID (frontend). Optional — defaults to the demo env client-side ID baked into `apps/web/src/main.tsx`. Override per-environment if you point at a different LD project. | LaunchDarkly dashboard → Account settings → Projects → Environment → Client-side ID |
+| `MACROSCOPE_WEBHOOK_URL_PAGERDUTY` | Macroscope Agent webhook URL the PagerDuty relay forwards to. Required on the `api` service to wire Video 003. | Macroscope workspace → Webhook trigger settings |
+| `MACROSCOPE_WEBHOOK_SECRET_PAGERDUTY` | Shared secret sent as `X-Webhook-Secret` to Macroscope by the PagerDuty relay. Required. | Same place as the URL above |
+| `PAGERDUTY_API_TOKEN` | PagerDuty REST API token used by the outbound findings route to post incident notes. Required for Video 003 payback path. | PagerDuty → Integrations → API Access Keys |
+| `PAGERDUTY_FROM_EMAIL` | Email used as the `From:` header on PagerDuty REST writes. Defaults to `ivan@prasso.ai` when unset. | A real PagerDuty user in your account |
+| `PAGERDUTY_WEBHOOK_SECRET` | Secret for verifying inbound PagerDuty V3 webhook signatures. Optional in dev (relay warns and accepts); recommended in production once the PD subscription is configured. | PagerDuty → Service → Integrations → Webhook Subscription |
+| `API_BASE_URL` | Optional override for the absolute base URL the PagerDuty relay tells Macroscope to call back. When unset, derived from the inbound request. Example: `https://api-production-6f9c.up.railway.app`. | Railway service public URL |
 
 Copy `.env.example` to `.env` and fill in the Supabase keys to run locally.
 
