@@ -11,13 +11,13 @@
 // ---
 // Open questions resolved here (or being probed):
 //
-// 1. `responseDestination` field name for a webhook URL. Macroscope's public
-//    docs document the capability ("Outputs forwarded to a webhook URL") but
-//    not the exact field name. We try `url` first because it is the most
-//    natural shape and matches the canonical convention used by Slack-flavored
-//    response destinations elsewhere in the API. If the upstream rejects this,
-//    update the comment block at the top of this file with the discovered
-//    field name and adjust `buildResponseDestination` below.
+// 1. `responseDestination` field name for a webhook URL. RESOLVED — per
+//    docs.macroscope.com/api the field is `webhookUrl` (sibling of the Slack
+//    flavor's `slackChannelId`). Macroscope silently ignores unknown fields,
+//    so an incorrect name produces a 200 response with a workflowId but no
+//    callback ever fires. Macroscope's POST body to the webhook URL has the
+//    shape `{ query, response, workflowId }` — `pagerdutyFindings.ts` reads
+//    `response` (with fallbacks).
 //
 // 2. Inbound PD signature verification. PagerDuty's V3 webhook scheme signs
 //    the raw body with HMAC-SHA256 and lists one or more `v1=<hex>` entries in
@@ -105,8 +105,11 @@ function buildResponseDestination(baseUrl: string, incidentId: string) {
   const callbackUrl = `${baseUrl}/api/webhooks/pagerduty/findings/${encodeURIComponent(
     incidentId
   )}`;
-  // Best-guess field name. See header comment.
-  return { url: callbackUrl };
+  // Per docs.macroscope.com/api: the responseDestination object accepts
+  // `slackChannelId` for Slack delivery and `webhookUrl` for an external
+  // URL destination. Unknown fields are silently ignored, which leaves the
+  // workflow with no destination at all.
+  return { webhookUrl: callbackUrl };
 }
 
 // PagerDuty V3 webhook signature: HMAC-SHA256 of the raw request body using
@@ -261,7 +264,7 @@ pagerdutyWebhook.post("/", async (c) => {
     {
       incidentId: incident.incidentId,
       workflowId: responseBody.workflowId ?? null,
-      callbackUrl: responseDestination.url,
+      callbackUrl: responseDestination.webhookUrl,
     },
     "pagerduty -> macroscope relay forwarded"
   );
