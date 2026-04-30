@@ -84,9 +84,16 @@ function extractIncident(payload: PagerDutyV3WebhookPayload): IncidentSummary {
 // SMOKE-TEST PROMPT. Replace with the real investigation prompt once relay
 // wiring is verified. Tracked in
 // video-content/videos/003-pagerduty-investigation/demo-flow.md.
+//
+// The `[INCIDENT_ID:...]` tag at the start of the query is structural — the
+// findings route parses it out of Macroscope's echoed `query` field to know
+// which PagerDuty incident to attach the note to. Keep the tag exactly as
+// formatted (uppercase, square brackets, colon) so the regex in
+// `pagerdutyFindings.ts` matches.
 function buildSmokeTestQuery(incidentId: string): string {
   const nowIso = new Date().toISOString();
   return [
+    `[INCIDENT_ID:${incidentId}]`,
     "Hello, Macroscope! This is the PagerDuty relay smoke test.",
     `Please reply with: "Hello back from Macroscope. Incident \`${incidentId}\` was received from the PagerDuty relay at ${nowIso}."`,
     "Do not investigate anything yet. Do not query any integrations. Just acknowledge.",
@@ -101,14 +108,18 @@ function deriveBaseUrl(requestUrl: string): string {
   return `${u.protocol}//${u.host}`;
 }
 
-function buildResponseDestination(baseUrl: string, incidentId: string) {
-  const callbackUrl = `${baseUrl}/api/webhooks/pagerduty/findings/${encodeURIComponent(
-    incidentId
-  )}`;
-  // Per docs.macroscope.com/api: the responseDestination object accepts
-  // `slackChannelId` for Slack delivery and `webhookUrl` for an external
-  // URL destination. Unknown fields are silently ignored, which leaves the
-  // workflow with no destination at all.
+function buildResponseDestination(baseUrl: string) {
+  // Static callback URL (no per-incident path variable). Macroscope's
+  // workspace allowlist does strict literal matching — no prefix, no
+  // wildcard. A path with the incident ID baked in would require seeding
+  // the allowlist for every possible incident, which is impossible. The
+  // findings route extracts the incident ID from Macroscope's echoed
+  // `query` field instead (see `buildSmokeTestQuery` above and the
+  // INCIDENT_ID regex in `pagerdutyFindings.ts`).
+  //
+  // Per docs.macroscope.com/api: `responseDestination` accepts
+  // `slackChannelId` for Slack or `webhookUrl` for an external URL.
+  const callbackUrl = `${baseUrl}/api/webhooks/pagerduty/findings`;
   return { webhookUrl: callbackUrl };
 }
 
@@ -225,10 +236,7 @@ pagerdutyWebhook.post("/", async (c) => {
 
   const query = buildSmokeTestQuery(incident.incidentId);
   const baseUrl = deriveBaseUrl(c.req.url);
-  const responseDestination = buildResponseDestination(
-    baseUrl,
-    incident.incidentId
-  );
+  const responseDestination = buildResponseDestination(baseUrl);
 
   const upstream = await fetch(macroscopeUrl, {
     method: "POST",

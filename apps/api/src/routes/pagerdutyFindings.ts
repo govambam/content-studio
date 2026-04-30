@@ -7,15 +7,24 @@
 // Sister route: `pagerdutyWebhook.ts`.
 //
 // ---
+// Why we extract the incident ID from the request body, not the URL:
+//
+// Macroscope's workspace allowlist for `webhookUrl` destinations does strict
+// literal matching — no prefix, no wildcard. A callback URL like
+// `/findings/<incidentId>` would require the operator to manually allowlist
+// every possible incident URL, which is impossible. So the inbound relay
+// uses one static callback URL (`/api/webhooks/pagerduty/findings`) and
+// encodes the incident ID inside the query text as `[INCIDENT_ID:<id>]`.
+// Macroscope echoes the original query verbatim in its reply body's
+// `query` field, so we regex it back out here.
+//
 // Notes on the inbound body shape from Macroscope:
 //
-// The exact response shape Macroscope POSTs to a webhook-URL response
-// destination is not publicly documented at the time of writing. Plausible
-// shapes include `{ "answer": "..." }`, `{ "response": "..." }`, or a richer
-// envelope wrapping the text. We accept any of these and fall back to
-// `JSON.stringify(body)` if no obvious text field is present, so the relay is
-// robust to schema drift while we observe real traffic. Update this comment
-// with the confirmed shape once it's been seen in practice.
+// Confirmed via docs.macroscope.com/api: `{ query, response, workflowId }`.
+// `query` is our original query (verbatim — that's how we recover the
+// incident ID). `response` is the agent's reply text. We additionally accept
+// `answer|message|text|output|result` as fallbacks for resilience, and
+// stringify the whole body if no obvious text field is present.
 //
 // Notes on the outbound PagerDuty Notes API:
 //
@@ -34,12 +43,26 @@ import { logger } from "../lib/logger.js";
 const pagerdutyFindings = new Hono();
 
 interface MacroscopeReplyBody {
+  query?: unknown;
   answer?: unknown;
   response?: unknown;
   message?: unknown;
   text?: unknown;
   output?: unknown;
   result?: unknown;
+}
+
+// Pattern that the inbound relay embeds at the start of every query
+// (`[INCIDENT_ID:Q1AB...]`). Mirrors the formatting in
+// `pagerdutyWebhook.ts::buildSmokeTestQuery`.
+const INCIDENT_ID_PATTERN = /\[INCIDENT_ID:([A-Z0-9]+)\]/;
+
+function extractIncidentId(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+  const obj = body as MacroscopeReplyBody;
+  if (typeof obj.query !== "string") return null;
+  const match = obj.query.match(INCIDENT_ID_PATTERN);
+  return match?.[1] ?? null;
 }
 
 interface PagerDutyNoteResponse {
@@ -77,9 +100,8 @@ function extractReplyText(body: unknown): string {
   return JSON.stringify(body);
 }
 
-pagerdutyFindings.post("/:incidentId", async (c) => {
+pagerdutyFindings.post("/", async (c) => {
   const log = c.get("logger") ?? logger;
-  const incidentId = c.req.param("incidentId");
 
   const pdToken = process.env.PAGERDUTY_API_TOKEN;
   const fromEmail = process.env.PAGERDUTY_FROM_EMAIL ?? "ivan@prasso.ai";
@@ -93,6 +115,18 @@ pagerdutyFindings.post("/:incidentId", async (c) => {
   }
 
   const body = (await c.req.json().catch(() => ({}))) as unknown;
+
+  const incidentId = extractIncidentId(body);
+  if (!incidentId) {
+    log.warn(
+      "pagerduty findings request missing INCIDENT_ID tag in echoed query"
+    );
+    return c.json(
+      { data: null, error: "incident id not found in macroscope reply" },
+      400
+    );
+  }
+
   const noteContent = extractReplyText(body);
 
   log.info(
