@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { logger } from "./lib/logger.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { securityHeaders } from "./middleware/securityHeaders.js";
+import charge from "./routes/charge.js";
 
 const app = new Hono();
 
@@ -17,6 +18,8 @@ app.get("/health", (c) => {
     release: process.env.RELEASE_SHA ?? null,
   });
 });
+
+app.route("/charge", charge);
 
 app.notFound((c) => c.json({ data: null, error: "not found" }, 404));
 
