@@ -31,25 +31,51 @@ interface PinoRecord {
 // Build a Writable stream that ships each Pino line to Cloud Logging.
 // Failures are logged to stderr and swallowed — GCP transport hiccups
 // must not stall the request path or crash the process.
+//
+// Credentials can be supplied two ways:
+//   - GOOGLE_APPLICATION_CREDENTIALS_JSON  (full JSON of the SA key, suitable
+//     for platforms like Railway that don't provide a writable secrets path)
+//   - GOOGLE_APPLICATION_CREDENTIALS       (path to a key file, suitable for
+//     local dev via `gcloud auth` or a mounted secret)
+// JSON takes precedence when both are set.
 function createGcpStream(): Writable {
+  const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
   const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (!credentialsPath) {
+
+  const noopStream = new Writable({
+    write(_chunk, _encoding, cb) {
+      cb();
+    },
+  });
+
+  const loggingOpts: ConstructorParameters<typeof Logging>[0] = {
+    projectId: process.env.GCP_PROJECT_ID,
+  };
+
+  if (credentialsJson) {
+    try {
+      loggingOpts.credentials = JSON.parse(credentialsJson) as {
+        client_email: string;
+        private_key: string;
+      };
+    } catch {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[logger] GOOGLE_APPLICATION_CREDENTIALS_JSON is set but not valid JSON; GCP log shipping disabled",
+      );
+      return noopStream;
+    }
+  } else if (credentialsPath) {
+    loggingOpts.keyFilename = credentialsPath;
+  } else {
     // eslint-disable-next-line no-console
     console.warn(
-      "[logger] GOOGLE_APPLICATION_CREDENTIALS not set; GCP log shipping disabled",
+      "[logger] no GOOGLE_APPLICATION_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS set; GCP log shipping disabled",
     );
-    // No-op sink so multistream still has a writer.
-    return new Writable({
-      write(_chunk, _encoding, cb) {
-        cb();
-      },
-    });
+    return noopStream;
   }
 
-  const logging = new Logging({
-    keyFilename: credentialsPath,
-    projectId: process.env.GCP_PROJECT_ID,
-  });
+  const logging = new Logging(loggingOpts);
   const log = logging.log(GCP_LOG_NAME);
 
   return new Writable({
