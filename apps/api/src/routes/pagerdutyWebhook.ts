@@ -210,9 +210,12 @@ pagerdutyWebhook.post("/", async (c) => {
     "pagerduty webhook received"
   );
 
-  // We forward `incident.triggered` events. Other event types ack with 200 so
-  // PD doesn't retry, but we don't trigger an Agent run.
-  if (eventType && eventType !== "incident.triggered") {
+  // We forward `incident.triggered` events. Anything else — including a
+  // missing or null event type — gets a 200 ack so PD doesn't retry, but
+  // we don't trigger an Agent run. Treating null as "not a triggered
+  // event" prevents forwarding garbage payloads to Macroscope with
+  // incidentId="unknown".
+  if (eventType !== "incident.triggered") {
     log.info({ eventType }, "ignoring non-triggered pagerduty event");
     return c.json({ data: { workflowId: null }, error: null });
   }
