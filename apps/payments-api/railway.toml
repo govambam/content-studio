@@ -1,0 +1,14 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Surface the commit SHA into the payments-api process so pino's base
+# block and `/health` can echo it. Mirrors the root railway.toml pattern
+# used by content-studio-api.
+[deploy.variables]
+RELEASE_SHA = "${{RAILWAY_GIT_COMMIT_SHA}}"
