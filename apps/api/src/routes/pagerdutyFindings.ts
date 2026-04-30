@@ -1,8 +1,8 @@
 // Macroscope -> PagerDuty relay (outbound).
 //
 // Receives Macroscope's Agent reply (sent via the `responseDestination` URL
-// configured by `pagerdutyWebhook.ts`) and posts the reply text as a note on
-// the originating PagerDuty incident.
+// configured by `pagerdutyWebhook.ts`) and writes the reply text into a
+// custom field on the originating PagerDuty incident.
 //
 // Sister route: `pagerdutyWebhook.ts`.
 //
@@ -26,16 +26,17 @@
 // `answer|message|text|output|result` as fallbacks for resilience, and
 // stringify the whole body if no obvious text field is present.
 //
-// Notes on the outbound PagerDuty Notes API:
+// Notes on the outbound PagerDuty Custom Fields API:
 //
-// - Endpoint: `POST https://api.pagerduty.com/incidents/{id}/notes`
+// - Endpoint: `PUT https://api.pagerduty.com/incidents/{id}/custom_fields/values`
 // - Auth: `Authorization: Token token=$PAGERDUTY_API_TOKEN`
 // - Required header: `From: <pd-user-email>` — even with account-scoped
-//   tokens, PD requires a real user email here. See pd-setup.md gotcha.
+//   tokens, PD requires a real user email here.
 // - Headers also include `Accept: application/vnd.pagerduty+json;version=2`.
-// - Body: `{ "note": { "content": "<text>" } }`
-// - PD notes render reliably as plain text; markdown rendering is
-//   inconsistent. We pass through Macroscope's text untouched.
+// - Body: `{ "custom_fields": [{ "id": "<field_id>", "value": "<text>" }] }`
+// - The target field is configured via `PAGERDUTY_INVESTIGATION_FIELD_ID` env
+//   var (set up in PD as a `paragraph` data_type so it accepts up to 2000
+//   characters of multi-line text). PD plain-text rendering — no markdown.
 
 import { Hono } from "hono";
 import { logger } from "../lib/logger.js";
@@ -54,8 +55,12 @@ interface MacroscopeReplyBody {
 
 // Pattern that the inbound relay embeds at the start of every query
 // (`[INCIDENT_ID:Q1AB...]`). Mirrors the formatting in
-// `pagerdutyWebhook.ts::buildSmokeTestQuery`.
+// `pagerdutyWebhook.ts::buildInvestigationQuery`.
 const INCIDENT_ID_PATTERN = /\[INCIDENT_ID:([A-Z0-9]+)\]/;
+
+// PD's `paragraph` custom-field data_type caps at 2000 characters. Truncate
+// defensively so a verbose Agent reply doesn't fail the whole PUT.
+const FIELD_MAX_CHARS = 2000;
 
 function extractIncidentId(body: unknown): string | null {
   if (typeof body !== "object" || body === null) return null;
@@ -63,13 +68,6 @@ function extractIncidentId(body: unknown): string | null {
   if (typeof obj.query !== "string") return null;
   const match = obj.query.match(INCIDENT_ID_PATTERN);
   return match?.[1] ?? null;
-}
-
-interface PagerDutyNoteResponse {
-  note?: {
-    id?: string;
-    content?: string;
-  };
 }
 
 const TEXT_FIELDS = [
@@ -96,8 +94,13 @@ function extractReplyText(body: unknown): string {
   }
 
   // Fall back to a stringified payload so the operator at least sees something
-  // on the incident timeline rather than silently dropping the reply.
+  // on the incident rather than silently dropping the reply.
   return JSON.stringify(body);
+}
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1) + "…";
 }
 
 pagerdutyFindings.post("/", async (c) => {
@@ -105,11 +108,22 @@ pagerdutyFindings.post("/", async (c) => {
 
   const pdToken = process.env.PAGERDUTY_API_TOKEN;
   const fromEmail = process.env.PAGERDUTY_FROM_EMAIL ?? "ivan@prasso.ai";
+  const fieldId = process.env.PAGERDUTY_INVESTIGATION_FIELD_ID;
 
   if (!pdToken) {
-    log.error("PAGERDUTY_API_TOKEN is not set; cannot post incident note");
+    log.error("PAGERDUTY_API_TOKEN is not set; cannot write incident custom field");
     return c.json(
       { data: null, error: "pagerduty api token not configured" },
+      500
+    );
+  }
+
+  if (!fieldId) {
+    log.error(
+      "PAGERDUTY_INVESTIGATION_FIELD_ID is not set; cannot write incident custom field"
+    );
+    return c.json(
+      { data: null, error: "pagerduty custom field id not configured" },
       500
     );
   }
@@ -127,20 +141,21 @@ pagerdutyFindings.post("/", async (c) => {
     );
   }
 
-  const noteContent = extractReplyText(body);
+  const fieldValue = truncate(extractReplyText(body), FIELD_MAX_CHARS);
 
   log.info(
     {
       incidentId,
-      noteLength: noteContent.length,
+      fieldId,
+      valueLength: fieldValue.length,
     },
     "pagerduty findings received from macroscope"
   );
 
   const pdResponse = await fetch(
-    `https://api.pagerduty.com/incidents/${encodeURIComponent(incidentId)}/notes`,
+    `https://api.pagerduty.com/incidents/${encodeURIComponent(incidentId)}/custom_fields/values`,
     {
-      method: "POST",
+      method: "PUT",
       headers: {
         Authorization: `Token token=${pdToken}`,
         Accept: "application/vnd.pagerduty+json;version=2",
@@ -148,7 +163,7 @@ pagerdutyFindings.post("/", async (c) => {
         From: fromEmail,
       },
       body: JSON.stringify({
-        note: { content: noteContent },
+        custom_fields: [{ id: fieldId, value: fieldValue }],
       }),
     }
   );
@@ -158,31 +173,27 @@ pagerdutyFindings.post("/", async (c) => {
     log.error(
       {
         incidentId,
+        fieldId,
         status: pdResponse.status,
         body: errBody,
       },
-      "pagerduty note create failed"
+      "pagerduty custom field update failed"
     );
     return c.json(
-      { data: null, error: "pagerduty note create failed" },
+      { data: null, error: "pagerduty custom field update failed" },
       502
     );
   }
 
-  const responseBody = (await pdResponse
-    .json()
-    .catch(() => ({}))) as PagerDutyNoteResponse;
-  const noteId = responseBody.note?.id ?? null;
-
   log.info(
     {
       incidentId,
-      noteId,
+      fieldId,
     },
-    "pagerduty incident note created"
+    "pagerduty incident custom field updated"
   );
 
-  return c.json({ data: { noteId }, error: null });
+  return c.json({ data: { incidentId, fieldId }, error: null });
 });
 
 export default pagerdutyFindings;
