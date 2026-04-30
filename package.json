@@ -10,6 +10,7 @@
   "scripts": {
     "dev:web": "npm run dev -w apps/web",
     "dev:api": "npm run dev -w apps/api",
+    "dev:payments-api": "npm run dev -w apps/payments-api",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start -w apps/api",
     "typecheck": "tsc --build"
