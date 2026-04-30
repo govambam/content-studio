@@ -13,7 +13,8 @@
     "dev:payments-api": "npm run dev -w apps/payments-api",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start -w apps/api",
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "load-test:payments-api": "node scripts/load-payments-api.mjs"
   },
   "engines": {
     "node": ">=20"
