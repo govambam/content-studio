@@ -191,8 +191,9 @@ pagerdutyWebhook.post("/", async (c) => {
   let payload: PagerDutyV3WebhookPayload;
   try {
     payload = rawBody ? (JSON.parse(rawBody) as PagerDutyV3WebhookPayload) : {};
-  } catch {
-    payload = {};
+  } catch (err) {
+    log.warn({ err }, "failed to parse pagerduty webhook payload");
+    return c.json({ data: null, error: "invalid json" }, 400);
   }
 
   const eventType = payload.event?.event_type ?? null;
