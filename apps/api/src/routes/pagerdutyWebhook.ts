@@ -1,34 +1,29 @@
 // PagerDuty -> Macroscope relay (inbound).
 //
-// Receives a PagerDuty V3 webhook (`incident.triggered`) and forwards a query
-// to the Macroscope Agent webhook trigger. The Agent's reply is routed back to
-// the outbound /findings route via `responseDestination`, which the relay then
-// posts as a note on the originating PagerDuty incident.
+// Receives a PagerDuty V3 webhook (`incident.triggered`) and forwards an
+// investigation prompt to the Macroscope Agent webhook trigger. The Agent's
+// reply is routed back to the outbound /findings route via
+// `responseDestination`, which writes the reply into a custom field on the
+// originating PagerDuty incident.
 //
 // Sister route: `pagerdutyFindings.ts`.
 // Pattern source: `sentryWebhook.ts` (env handling, logging, return shape).
 //
 // ---
-// Open questions resolved here (or being probed):
+// Notes resolved here:
 //
-// 1. `responseDestination` field name for a webhook URL. RESOLVED — per
-//    docs.macroscope.com/api the field is `webhookUrl` (sibling of the Slack
-//    flavor's `slackChannelId`). Macroscope silently ignores unknown fields,
-//    so an incorrect name produces a 200 response with a workflowId but no
-//    callback ever fires. Macroscope's POST body to the webhook URL has the
-//    shape `{ query, response, workflowId }` — `pagerdutyFindings.ts` reads
-//    `response` (with fallbacks).
+// 1. `responseDestination` field name is `webhookUrl` (sibling of the Slack
+//    flavor's `slackChannelId`), per docs.macroscope.com/api. Macroscope
+//    silently ignores unknown fields, so an incorrect name produces a
+//    200+workflowId with no callback ever firing. Macroscope's POST body to
+//    the webhook URL has the shape `{ query, response, workflowId }` —
+//    `pagerdutyFindings.ts` reads `response` (with fallbacks).
 //
 // 2. Inbound PD signature verification. PagerDuty's V3 webhook scheme signs
 //    the raw body with HMAC-SHA256 and lists one or more `v1=<hex>` entries in
 //    `X-PagerDuty-Signature`. If `PAGERDUTY_WEBHOOK_SECRET` is unset, we
 //    accept the request anyway (warn-and-accept) so the demo works before a
-//    subscription is wired. This mirrors how `sentryWebhook.ts` tolerates a
-//    missing secret in dev.
-//
-// SMOKE-TEST PROMPT. Replace with the real investigation prompt once relay
-// wiring is verified. Tracked in
-// video-content/videos/003-pagerduty-investigation/demo-flow.md.
+//    subscription is wired.
 
 import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -81,23 +76,47 @@ function extractIncident(payload: PagerDutyV3WebhookPayload): IncidentSummary {
   };
 }
 
-// SMOKE-TEST PROMPT. Replace with the real investigation prompt once relay
-// wiring is verified. Tracked in
-// video-content/videos/003-pagerduty-investigation/demo-flow.md.
-//
 // The `[INCIDENT_ID:...]` tag at the start of the query is structural — the
 // findings route parses it out of Macroscope's echoed `query` field to know
-// which PagerDuty incident to attach the note to. Keep the tag exactly as
+// which PagerDuty incident to attach the reply to. Keep the tag exactly as
 // formatted (uppercase, square brackets, colon) so the regex in
 // `pagerdutyFindings.ts` matches.
-function buildSmokeTestQuery(incidentId: string): string {
-  const nowIso = new Date().toISOString();
-  return [
-    `[INCIDENT_ID:${incidentId}]`,
-    "Hello, Macroscope! This is the PagerDuty relay smoke test.",
-    `Please reply with: "Hello back from Macroscope. Incident \`${incidentId}\` was received from the PagerDuty relay at ${nowIso}."`,
-    "Do not investigate anything yet. Do not query any integrations. Just acknowledge.",
-  ].join(" ");
+function buildInvestigationQuery(
+  incident: IncidentSummary,
+  occurredAt: string | null
+): string {
+  const service = incident.serviceName ?? "payments-api";
+  const lines: string[] = [
+    `[INCIDENT_ID:${incident.incidentId}]`,
+    "",
+    `You are responding to an active PagerDuty incident on the \`${service}\` service. An on-call engineer was just paged. Investigate the issue and identify the root cause for the on-call engineer to fix.`,
+    "",
+    "Use the PagerDuty MCP server to look up the incident, GCP Cloud Logging, Sentry issues in the `payments-api` project, and the `govambam/content-studio` codebase to find the root cause.",
+    "",
+    "Incident:",
+    `- ID: ${incident.incidentId}`,
+    `- Title: ${incident.title}`,
+  ];
+  if (incident.serviceName) lines.push(`- Service: ${incident.serviceName}`);
+  if (occurredAt) lines.push(`- Triggered at: ${occurredAt}`);
+  if (incident.htmlUrl) lines.push(`- PagerDuty URL: ${incident.htmlUrl}`);
+  lines.push(
+    "",
+    "Reply (plain text, will be written to a custom field on the incident — do not use markdown headers or code fences):",
+    "",
+    "ROOT CAUSE",
+    "<one or two sentences. State the bug plainly. If you can't determine it confidently, say so and skip FIX PROMPT.>",
+    "",
+    "EVIDENCE",
+    "- Log pattern: <error + count over window>",
+    '- Suspect commit: <short_sha> "<message>" by <author> at <timestamp> — <one-line why>',
+    "- Code location: <path:line> — <what's wrong>",
+    '- Sentry: <issue title + first-seen, or "no related issue">',
+    "",
+    "FIX PROMPT",
+    '<A self-contained instruction the engineer pastes into Claude Code. Start with "In apps/payments-api/..., open a PR that...". Include the file path, the specific change, and a one-line PR title. Do not write the diff yourself — just the instruction.>'
+  );
+  return lines.join("\n");
 }
 
 function deriveBaseUrl(requestUrl: string): string {
@@ -114,7 +133,7 @@ function buildResponseDestination(baseUrl: string) {
   // wildcard. A path with the incident ID baked in would require seeding
   // the allowlist for every possible incident, which is impossible. The
   // findings route extracts the incident ID from Macroscope's echoed
-  // `query` field instead (see `buildSmokeTestQuery` above and the
+  // `query` field instead (see `buildInvestigationQuery` above and the
   // INCIDENT_ID regex in `pagerdutyFindings.ts`).
   //
   // Per docs.macroscope.com/api: `responseDestination` accepts
@@ -234,7 +253,8 @@ pagerdutyWebhook.post("/", async (c) => {
     return c.json({ data: { workflowId: null }, error: null });
   }
 
-  const query = buildSmokeTestQuery(incident.incidentId);
+  const occurredAt = payload.event?.occurred_at ?? null;
+  const query = buildInvestigationQuery(incident, occurredAt);
   const baseUrl = deriveBaseUrl(c.req.url);
   const responseDestination = buildResponseDestination(baseUrl);
 
