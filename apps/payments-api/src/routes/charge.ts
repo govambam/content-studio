@@ -21,24 +21,43 @@ charge.post("/", async (c) => {
       400,
     );
   }
-  const { amount, currency, customerId } = parsed.data;
+  const { amount, currency, customerId, idempotencyKey } = parsed.data;
 
-  const result = await pool.query<{ id: string }>(
+  // Use an explicit pooled client so the idempotency lookup and the
+  // subsequent insert run on the same connection.
+  const client = await pool.connect();
+
+  const existing = await client.query<{ response: unknown }>(
+    "SELECT response FROM charge_idempotency WHERE key = $1",
+    [idempotencyKey],
+  );
+  if (existing.rows.length > 0) {
+    client.release();
+    return c.json(existing.rows[0]!.response);
+  }
+
+  const result = await client.query<{ id: string }>(
     "INSERT INTO charges (amount, currency, customer_id, status) VALUES ($1, $2, $3, $4) RETURNING id",
     [amount, currency, customerId, "succeeded"],
   );
+  const response = {
+    id: result.rows[0]!.id,
+    amount,
+    currency,
+    status: "succeeded",
+  };
 
-  const row = result.rows[0];
-  if (!row) {
-    throw new Error("insert returned no rows");
-  }
+  await client.query(
+    "INSERT INTO charge_idempotency (key, charge_id, response) VALUES ($1, $2, $3)",
+    [idempotencyKey, result.rows[0]!.id, response],
+  );
 
   logger.info(
-    { chargeId: row.id, amount, customerId },
+    { chargeId: response.id, amount, customerId, idempotencyKey },
     "charge processed",
   );
 
-  return c.json({ id: row.id, amount, currency, status: "succeeded" });
+  return c.json(response);
 });
 
 export default charge;
