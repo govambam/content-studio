@@ -16,8 +16,10 @@ comments.get("/tickets/:ticketId/comments", async (c) => {
   if (!params.ok) return params.response;
   const ticketId = params.data.ticketId;
 
-  const limit = Math.min(parseInt(c.req.query("limit") ?? "50", 10), 100);
-  const offset = parseInt(c.req.query("offset") ?? "0", 10);
+  const rawLimit = parseInt(c.req.query("limit") ?? "50", 10);
+  const limit = isNaN(rawLimit) ? 50 : Math.min(rawLimit, 100);
+  const rawOffset = parseInt(c.req.query("offset") ?? "0", 10);
+  const offset = isNaN(rawOffset) ? 0 : rawOffset;
 
   const { data, error } = await supabase
     .from("comments")
