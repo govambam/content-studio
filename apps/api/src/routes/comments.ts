@@ -10,17 +10,21 @@ import type { ApiResponse, Comment } from "@content-studio/shared";
 
 const comments = new Hono();
 
-// List comments on a ticket (oldest first)
+// List comments on a ticket (oldest first), paginated
 comments.get("/tickets/:ticketId/comments", async (c) => {
   const params = parseParams(c, ticketIdParam);
   if (!params.ok) return params.response;
   const ticketId = params.data.ticketId;
 
+  const limit = Math.min(parseInt(c.req.query("limit") ?? "50", 10), 100);
+  const offset = parseInt(c.req.query("offset") ?? "0", 10);
+
   const { data, error } = await supabase
     .from("comments")
     .select("*")
     .eq("ticket_id", ticketId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .range(offset, offset + limit);
 
   if (error) {
     return c.json(
