@@ -95,6 +95,10 @@ Macroscope reviews take 1–10 minutes. Do not merge a PR until the review is cl
 - API routes return `{ data, error }`
 - Keep components small and the directory flat
 
+See **`CONTRIBUTING.md`** for the full, enforceable engineering conventions
+(API envelope, validation, error handling, logging, naming, security, migrations).
+Follow it on every PR.
+
 ## CLI Tools Available
 
 - `gh` — GitHub CLI
