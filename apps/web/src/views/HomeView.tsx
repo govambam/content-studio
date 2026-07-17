@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ContentStatus, Project } from "@content-studio/shared";
 import { Sidebar } from "../components/Sidebar";
 import { KanbanBoard } from "../components/KanbanBoard";
 import { ProjectCard } from "../components/ProjectCard";
+import { BulkActionsBar } from "../components/BulkActionsBar";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { SkeletonKanbanBoard } from "../components/Skeleton";
 import { useLabels } from "../hooks/useLabels";
@@ -18,9 +19,22 @@ export function HomeView() {
     loading: projectsLoading,
     createProject,
     updateProject,
+    deleteProject,
   } = useProjects();
   const [activeFilterIds, setActiveFilterIds] = useState<Set<string>>(new Set());
   const [showNewProject, setShowNewProject] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = useCallback((projectId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
   const toggleFilter = (labelId: string) => {
     setActiveFilterIds((prev) => {
@@ -34,6 +48,29 @@ export function HomeView() {
   };
 
   const clearFilters = () => setActiveFilterIds(new Set());
+
+  // Drop any selected ids that no longer exist (e.g. after a bulk delete
+  // or a realtime removal) so the banner count never counts ghosts.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const live = prev.size;
+      const next = new Set<string>();
+      for (const p of projects) {
+        if (prev.has(p.id)) next.add(p.id);
+      }
+      return next.size === live ? prev : next;
+    });
+  }, [projects]);
+
+  // Esc clears the current selection.
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") clearSelection();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [clearSelection]);
 
   const visibleProjects = useMemo(() => {
     if (activeFilterIds.size === 0) return projects;
@@ -83,10 +120,72 @@ export function HomeView() {
       <ProjectCard
         project={project}
         onClick={() => navigate(`/projects/${project.id}`)}
+        selected={selectedIds.has(project.id)}
+        onToggleSelect={() => toggleSelect(project.id)}
       />
     ),
-    [navigate]
+    [navigate, selectedIds, toggleSelect]
   );
+
+  const handleBulkStatus = useCallback(
+    async (status: ContentStatus) => {
+      const ids = [...selectedIds];
+      track("projects_bulk_status_changed", {
+        count: ids.length,
+        to: status,
+      });
+      // Append the moved projects after the destination column's existing
+      // cards with sequential sort_order values, mirroring handleItemMoved,
+      // so they don't collide with or interleave the cards already there.
+      const moving = new Set(ids);
+      const destMaxOrder = projects
+        .filter((p) => p.status === status && !moving.has(p.id))
+        .reduce((max, p) => Math.max(max, p.sort_order), -1);
+      // These mutations resolve with an { error } response rather than
+      // rejecting, so inspect each result and only clear the selection
+      // when every project actually updated.
+      const results = await Promise.all(
+        ids.map((id, i) =>
+          updateProject(id, { status, sort_order: destMaxOrder + 1 + i })
+        )
+      );
+      if (results.every((res) => !res.error)) clearSelection();
+    },
+    [selectedIds, projects, updateProject, clearSelection]
+  );
+
+  const handleBulkLabel = useCallback(
+    async (labelId: string) => {
+      const ids = [...selectedIds];
+      track("projects_bulk_label_applied", {
+        count: ids.length,
+        label_id: labelId,
+      });
+      const results = await Promise.all(
+        ids.map((id) => updateProject(id, { labelIds: [labelId] }))
+      );
+      if (results.every((res) => !res.error)) clearSelection();
+    },
+    [selectedIds, updateProject, clearSelection]
+  );
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${ids.length} ${
+          ids.length === 1 ? "project" : "projects"
+        }? All tickets, assets, comments, and activity will be removed.`
+      )
+    ) {
+      return;
+    }
+    track("projects_bulk_deleted", { count: ids.length });
+    const results = await Promise.all(ids.map((id) => deleteProject(id)));
+    // Keep the selection intact if any delete failed so the user can retry.
+    if (results.every((res) => !res.error)) clearSelection();
+  }, [selectedIds, deleteProject, clearSelection]);
 
   const handleCreateProject = async (input: {
     title: string;
@@ -130,6 +229,17 @@ export function HomeView() {
           minWidth: 0,
         }}
       >
+        {selectedIds.size > 0 && (
+          <BulkActionsBar
+            selectedCount={selectedIds.size}
+            labels={labels}
+            onBulkStatus={handleBulkStatus}
+            onBulkLabel={handleBulkLabel}
+            onBulkDelete={handleBulkDelete}
+            onClear={clearSelection}
+          />
+        )}
+
         <header
           style={{
             height: "var(--header-height)",
