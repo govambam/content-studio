@@ -66,6 +66,33 @@ input, textarea, select {
   border-color: var(--rule-strong);
 }
 
+/* Multi-select checkbox on project cards: hidden until the card is
+   hovered, always shown while the card is selected (opacity forced
+   inline in that case). */
+.cs-select-checkbox {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.cs-hoverable-card:hover .cs-select-checkbox {
+  opacity: 1;
+}
+
+/* Keep the checkbox visible when a keyboard user tabs onto it, otherwise
+   the focus ring lands on a fully transparent element. */
+.cs-select-checkbox:focus-visible {
+  opacity: 1;
+}
+
+/* Touch devices have no persistent hover state, so the hover-reveal above
+   never fires — keep the checkbox visible there so multi-select is
+   discoverable and tappable. */
+@media (hover: none) {
+  .cs-select-checkbox {
+    opacity: 1;
+  }
+}
+
 .cs-markdown h1,
 .cs-markdown h2,
 .cs-markdown h3,
