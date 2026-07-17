@@ -162,11 +162,18 @@ export function HomeView() {
         label_id: labelId,
       });
       const results = await Promise.all(
-        ids.map((id) => updateProject(id, { labelIds: [labelId] }))
+        ids.map((id) => {
+          const project = projects.find((p) => p.id === id);
+          const existing = project ? project.labels.map((l) => l.id) : [];
+          const labelIds = existing.includes(labelId)
+            ? existing
+            : [...existing, labelId];
+          return updateProject(id, { labelIds });
+        })
       );
       if (results.every((res) => !res.error)) clearSelection();
     },
-    [selectedIds, updateProject, clearSelection]
+    [selectedIds, projects, updateProject, clearSelection]
   );
 
   const handleBulkDelete = useCallback(async () => {
