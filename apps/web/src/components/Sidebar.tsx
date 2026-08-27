@@ -5,6 +5,7 @@ import { NewLabelForm } from "./NewLabelForm";
 import { Wordmark } from "./Wordmark";
 import { InviteTeammateButton } from "./InviteTeammateButton";
 import { DocsButton } from "./DocsButton";
+import { SharingGuideButton } from "./SharingGuideButton";
 
 interface SidebarProps {
   labels: Label[];
@@ -211,6 +212,7 @@ export function Sidebar({
       >
         <InviteTeammateButton />
         <DocsButton />
+        <SharingGuideButton />
       </div>
     </aside>
   );
