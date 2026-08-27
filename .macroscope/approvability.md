@@ -51,8 +51,10 @@ Do not approve, regardless of how small or clean the diff looks:
   a one-way door.
 - **Billing and payments** — anything under `apps/payments-api/**` or touching the
   charge flow.
-- **Auth, invites, secrets, and environment configuration** — including new environment
-  variables and changes to `.env.example`.
+- **Auth, invites, secrets, and environment configuration** — the logic that issues or
+  accepts an invitation, anything handling tokens, credentials, or permissions, new
+  environment variables, and changes to `.env.example`. The server-side invite handler
+  is `apps/api/src/routes/invites.ts`, which is also covered by `neverApprove`.
 - **Inbound webhook handlers** — signature verification is security-critical
   (`CONTRIBUTING.md` §13), so a human confirms it.
 - **New or changed public API routes** under `apps/api/src/routes/**` — a changed
@@ -61,6 +63,24 @@ Do not approve, regardless of how small or clean the diff looks:
   needs a human to read the justification.
 - **CI workflows** and **this `.macroscope/` directory** — changes to the review system
   itself are reviewed by people.
+
+## Judge the change, not the filename
+
+The escalation list above describes **what a change does**, not where it happens to sit.
+A file is not sensitive because its name mentions invites, auth, or billing — it is
+sensitive because the change alters behavior in one of those areas.
+
+A purely mechanical, behavior-preserving edit stays **eligible** even in a file that
+belongs to a sensitive feature: swapping a hardcoded value for its design token,
+renaming a local variable, reformatting, or editing a comment. The test is whether the
+change can alter what the code does, what data flows through it, or what a user is able
+to do. If it cannot, the feature area it sits in does not make it risky.
+
+Judge the diff on this before escalating, and say so in the verdict when a
+sensitive-looking file turns out to be a mechanical edit.
+
+The `neverApprove` globs are the one exception — those paths are refused on path alone,
+by design, and nothing in this section overrides them.
 
 ## Convention findings block approval
 
