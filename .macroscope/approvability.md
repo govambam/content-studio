@@ -4,10 +4,11 @@ tools:
   - modify_pr
 conclusion: neutral
 waitsFor:
-  - "Correctness"
-  - "Design System & Frontend Conventions"
-  - "Feature Flags & Analytics"
+  - "Macroscope - Correctness Check"
+  - "Macroscope - Design System & Frontend Conventions"
+  - "Macroscope - Feature Flags & Analytics"
 waitsForTimeout: 20
+waitsForDiscoveryTimeout: 1
 neverApprove:
   - "supabase/migrations/**"
   - "apps/payments-api/**"
