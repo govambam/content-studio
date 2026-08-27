@@ -134,7 +134,7 @@ export function NewLabelForm({ onSubmit, onCancel }: NewLabelFormProps) {
             flex: 1,
             padding: "6px 8px",
             background: "var(--text-primary)",
-            color: "#FFFFFF",
+            color: "var(--bg-surface)",
             border: "none",
             borderRadius: "0",
             fontSize: "11px",
