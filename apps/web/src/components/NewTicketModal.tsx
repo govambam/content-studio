@@ -197,7 +197,7 @@ export function NewTicketModal({ onClose, onCreate }: NewTicketModalProps) {
             disabled={!title.trim() || submitting}
             style={{
               background: "var(--text-primary)",
-              color: "#FFFFFF",
+              color: "var(--bg-surface)",
               border: "none",
               borderRadius: "0",
               padding: "8px 16px",
