@@ -5,6 +5,7 @@ import { Sidebar } from "../components/Sidebar";
 import { KanbanBoard } from "../components/KanbanBoard";
 import { ProjectCard } from "../components/ProjectCard";
 import { NewProjectModal } from "../components/NewProjectModal";
+import { TemplateProjectButton } from "../components/TemplateProjectButton";
 import { SkeletonKanbanBoard } from "../components/Skeleton";
 import { useLabels } from "../hooks/useLabels";
 import { useProjects } from "../hooks/useProjects";
@@ -167,6 +168,12 @@ export function HomeView() {
               {activeFilterIds.size > 0 ? " (filtered)" : ""}
             </div>
           </div>
+          <TemplateProjectButton
+            onClick={() => {
+              track("new_project_modal_opened", { source: "template" });
+              setShowNewProject(true);
+            }}
+          />
           <button
             onClick={() => {
               track("new_project_modal_opened", {});
