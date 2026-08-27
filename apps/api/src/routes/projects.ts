@@ -5,6 +5,7 @@ import {
   createProjectSchema,
   idParam,
   updateProjectSchema,
+  bulkProjectStatusSchema,
 } from "../lib/schemas.js";
 import type {
   ApiResponse,
@@ -257,6 +258,38 @@ projects.put("/:id", async (c) => {
     );
   }
   return c.json({ data: full, error: null } satisfies ApiResponse<Project>);
+});
+
+// Bulk status change: move several projects into one column in a single
+// round trip. Backs the multi-select actions on the Home board, which
+// previously issued one PUT per selected card.
+projects.post("/bulk-status", async (c) => {
+  const parsed = await parseBody(c, bulkProjectStatusSchema);
+  if (!parsed.ok) return parsed.response;
+  const { projectIds, status } = parsed.data;
+
+  const { data: updated, error } = await supabase
+    .from("projects")
+    .update({ status })
+    .in("id", projectIds)
+    .select("id");
+
+  if (error) {
+    c.get("logger").error(
+      { err: error.message, status, count: projectIds.length },
+      "bulk_project_status_failed"
+    );
+    return c.json(
+      { data: null, error: error.message } satisfies ApiResponse<null>,
+      500
+    );
+  }
+
+  return c.json(
+    { data: { updated: updated?.length ?? 0 }, error: null } satisfies ApiResponse<{
+      updated: number;
+    }>
+  );
 });
 
 // Delete a project (cascades tickets, assets, comments, activity)
