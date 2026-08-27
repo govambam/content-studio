@@ -107,6 +107,18 @@ export const reorderTicketsSchema = z.object({
     }),
 });
 
+// Bulk actions
+export const bulkProjectStatusSchema = z.object({
+  projectIds: z
+    .array(uuidSchema)
+    .min(1, "projectIds must not be empty")
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "projectIds must not contain duplicates",
+    }),
+  status: contentStatusSchema,
+});
+
 // Params
 export const idParam = z.object({ id: uuidSchema });
 export const ticketIdParam = z.object({ ticketId: uuidSchema });
