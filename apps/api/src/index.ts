@@ -25,7 +25,7 @@ app.use(
   "*",
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    allowHeaders: ["Content-Type", "Authorization", "x-client-id", "x-request-id"],
+    allowHeaders: ["Content-Type", "Authorization", "x-request-id"],
     exposeHeaders: ["x-request-id"],
   })
 );
