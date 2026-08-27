@@ -120,7 +120,7 @@ export function ActivityFeed({
             disabled={!draft.trim() || submitting}
             style={{
               background: "var(--text-primary)",
-              color: "#FFFFFF",
+              color: "var(--bg-surface)",
               border: "none",
               borderRadius: "0",
               padding: "8px 16px",
@@ -355,7 +355,7 @@ function CommentRow({ comment, onEdit, onDelete }: CommentRowProps) {
               disabled={!draft.trim()}
               style={{
                 background: "var(--text-primary)",
-                color: "#FFFFFF",
+                color: "var(--bg-surface)",
                 border: "none",
                 borderRadius: "0",
                 padding: "6px 12px",
