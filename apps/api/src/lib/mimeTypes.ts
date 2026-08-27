@@ -60,9 +60,11 @@ const EXTENSION_MIME: Record<string, string> = {
 };
 
 function extensionOf(filename: string): string | null {
-  const dot = filename.lastIndexOf(".");
-  if (dot < 0 || dot === filename.length - 1) return null;
-  return filename.slice(dot + 1).toLowerCase();
+  const parts = filename.split(".");
+  if (parts.length < 2) return null;
+  const ext = parts[1];
+  if (!ext) return null;
+  return ext.toLowerCase();
 }
 
 export interface ResolvedMime {
